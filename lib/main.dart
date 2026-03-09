@@ -1,0 +1,162 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; 
+import 'screens/home_feed_screen.dart';
+import 'screens/share_food_screen.dart';
+import 'screens/alerts_screen.dart';
+import 'screens/sustainability_hub_screen.dart';
+
+// Yamzon, nilagay ko na 'to dito kasi pag nag-add tayo ng 
+// camera or local storage packages later, we will need this initialized.
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const FoodSaverCoreApp());
+}
+
+// Extract natin yung colors sa labas para madali i-edit ni Camus later.
+const _brandGreen = Color(0xFF0F9D58); 
+const _accentOrange = Color(0xFFF57C00);
+const _canvasOffWhite = Color(0xFFF5F7F5);
+
+class FoodSaverCoreApp extends StatelessWidget {
+  const FoodSaverCoreApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'FoodSaver MVP',
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: _canvasOffWhite,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: _brandGreen, 
+          primary: _brandGreen,
+          secondary: _accentOrange, 
+        ),
+        textTheme: GoogleFonts.nunitoTextTheme(
+          Theme.of(context).textTheme,
+        ),
+      ),
+      home: MainShellCoordinator(), // Tinanggal ko yung const dahil sa Notifier natin
+    );
+  }
+}
+
+// Ginamit nating StatelessWidget imbes na Stateful
+class MainShellCoordinator extends StatelessWidget {
+  MainShellCoordinator({super.key});
+
+  // Structural change: ValueNotifier imbes na setState()
+  // Ito yung mag-hahandle ng state nang mas malinis at mas mabilis
+  final ValueNotifier<int> _navController = ValueNotifier<int>(0);
+
+  // Aguiluz, Velasquez, Camus -- dito natin i-plug yung actual screens niyo.
+  // Ito na yung mga totoong classes once nagawa niyo na yung mga files!
+  final List<Widget> _injectedScreens = const [
+    HomeFeedScreen(),        // Index 0: Taps to "Home"
+    ShareFoodScreen(),       // Index 1: Taps to "Post"
+    AlertsScreen(),          // Index 2: Taps to "Alerts"
+    SustainabilityHubScreen()// Index 3: Taps to "Profile"
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: _constructTopBranding(context),
+      // Binalot natin yung body sa ValueListenableBuilder
+      body: ValueListenableBuilder<int>(
+        valueListenable: _navController,
+        builder: (context, activeIndex, child) {
+          return _injectedScreens[activeIndex];
+        },
+      ),
+      bottomNavigationBar: _assembleBottomRouting(),
+    );
+  }
+
+  // Left-aligned Figma design header natin
+  PreferredSizeWidget _constructTopBranding(BuildContext context) {
+    return AppBar(
+      toolbarHeight: 70, 
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'FoodSaver',
+            style: GoogleFonts.nunito(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: 0.2,
+            ),
+          ),
+          Text(
+            "Don't Waste It. Share It.",
+            style: GoogleFonts.nunito(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: Colors.white.withOpacity(0.9), 
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      elevation: 0.0, 
+    );
+  }
+
+  // Binalot din natin yung BottomNav sa sarili niyang builder
+  Widget _assembleBottomRouting() {
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: ValueListenableBuilder<int>(
+        valueListenable: _navController,
+        builder: (context, activeIndex, child) {
+          return BottomNavigationBar(
+            currentIndex: activeIndex,
+            // Imbes na setState, update lang natin yung value ng notifier
+            onTap: (index) => _navController.value = index,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: _brandGreen,
+            unselectedItemColor: Colors.grey.shade400,
+            showSelectedLabels: true,
+            showUnselectedLabels: true, 
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.add_box_outlined),
+                activeIcon: Icon(Icons.add_box),
+                label: 'Post',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.notifications_outlined),
+                activeIcon: Icon(Icons.notifications),
+                label: 'Alerts',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline),
+                activeIcon: Icon(Icons.person),
+                label: 'Profile',
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
