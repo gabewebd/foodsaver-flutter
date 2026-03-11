@@ -1,63 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-enum _AlertType { claim, nearby, follower, expiry }
+import '../data/mock_data.dart';
 
 class AlertsScreen extends StatelessWidget {
   const AlertsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Yamaguchi, dito natin hinihila yung mock alerts natin.
+    final List<AlertListing> alerts = AlertListing.fetchMockAlerts();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8F1),
       body: Column(
         children: [
-          _buildHeader(context),
+          _buildHeader(context, alerts.where((a) => a.isNew).length),
           Expanded(
-            child: ListView(
+            child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               physics: const BouncingScrollPhysics(),
-              children: [
-                _buildAlertCard(
-                  type: _AlertType.claim,
-                  title: 'Item Claimed!',
-                  description: 'Aguiluz claimed your "Pasta Sauce"',
-                  time: '2 min ago',
-                  isNew: true,
-                  hasActions: true,
-                ),
-                _buildAlertCard(
-                  type: _AlertType.nearby,
-                  title: 'New Item Nearby',
-                  description: 'Fresh bread available in Building C',
-                  time: '15 min ago',
-                  isNew: true,
-                ),
-                _buildAlertCard(
-                  type: _AlertType.follower,
-                  title: 'New Follower',
-                  description: 'John started following your posts',
-                  time: '1 hour ago',
-                ),
-                _buildAlertCard(
-                  type: _AlertType.expiry,
-                  title: 'Expiry Alert',
-                  description: 'Your yogurt expires in 2 days',
-                  time: '3 hours ago',
-                ),
-                _buildAlertCard(
-                  type: _AlertType.follower,
-                  title: 'New Follower',
-                  description: 'Martin started following your posts',
-                  time: '4 hours ago',
-                ),
-                _buildAlertCard(
-                  type: _AlertType.follower,
-                  title: 'New Follower',
-                  description: 'Aish started following your posts',
-                  time: '5 hours ago',
-                ),
-              ],
+              // Yamaguchi: Ito na yung dynamic list natin base sa data.
+              itemCount: alerts.length,
+              itemBuilder: (context, index) {
+                final alert = alerts[index];
+                return _buildAlertCard(alert);
+              },
             ),
           ),
         ],
@@ -65,10 +32,9 @@ class AlertsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, int newCount) {
     return Container(
       width: double.infinity,
-      // Using moderate top padding assuming this sits below the global AppBar in MainShellCoordinator
       padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 30),
       decoration: const BoxDecoration(
         color: Color(0xFF0F9D58),
@@ -108,7 +74,7 @@ class AlertsScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '2 New',
+              '$newCount New',
               style: GoogleFonts.nunito(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
@@ -121,21 +87,14 @@ class AlertsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAlertCard({
-    required _AlertType type,
-    required String title,
-    required String description,
-    required String time,
-    bool isNew = false,
-    bool hasActions = false,
-  }) {
+  Widget _buildAlertCard(AlertListing alert) {
     Color borderColor = Colors.grey.withOpacity(0.1);
-    if (type == _AlertType.claim && isNew) borderColor = Colors.green.withOpacity(0.3);
-    if (type == _AlertType.nearby && isNew) borderColor = Colors.orange.withOpacity(0.3);
+    if (alert.type == AlertType.claim && alert.isNew) borderColor = Colors.green.withOpacity(0.3);
+    if (alert.type == AlertType.nearby && alert.isNew) borderColor = Colors.orange.withOpacity(0.3);
 
     Color? accentColor;
-    if (type == _AlertType.claim && isNew) accentColor = Colors.green;
-    if (type == _AlertType.nearby && isNew) accentColor = Colors.orange;
+    if (alert.type == AlertType.claim && alert.isNew) accentColor = Colors.green;
+    if (alert.type == AlertType.nearby && alert.isNew) accentColor = Colors.orange;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -153,7 +112,6 @@ class AlertsScreen extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Left Accent Line for New Items
           if (accentColor != null)
             Positioned(
               left: 0,
@@ -175,7 +133,7 @@ class AlertsScreen extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildIconForType(type, isNew),
+                _buildIconForType(alert.type, alert.isNew),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -185,7 +143,7 @@ class AlertsScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            title,
+                            alert.title,
                             style: GoogleFonts.nunito(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -193,25 +151,25 @@ class AlertsScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            time,
+                            alert.timeAgo,
                             style: GoogleFonts.nunito(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: isNew ? const Color(0xFF0F9D58) : Colors.grey[400],
+                              color: alert.isNew ? const Color(0xFF0F9D58) : Colors.grey[400],
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        description,
+                        alert.description,
                         style: GoogleFonts.nunito(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey[600],
                         ),
                       ),
-                      if (hasActions) ...[
+                      if (alert.hasActions) ...[
                         const SizedBox(height: 14),
                         Row(
                           children: [
@@ -270,12 +228,12 @@ class AlertsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildIconForType(_AlertType type, bool isNew) {
+  Widget _buildIconForType(AlertType type, bool isNew) {
     Widget mainIcon;
     Widget? bottomBadge;
 
     switch (type) {
-      case _AlertType.claim:
+      case AlertType.claim:
         mainIcon = const CircleAvatar(
           radius: 24,
           backgroundColor: Color(0xFFEDF2FA),
@@ -290,18 +248,18 @@ class AlertsScreen extends StatelessWidget {
           child: const Icon(Icons.check_circle, color: Color(0xFF0F9D58), size: 16),
         );
         break;
-      case _AlertType.nearby:
+      case AlertType.nearby:
         mainIcon = Container(
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xFFFF7043), // Vibrant Orange
+            color: const Color(0xFFFF7043),
             borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
         );
         break;
-      case _AlertType.follower:
+      case AlertType.follower:
         mainIcon = const CircleAvatar(
           radius: 24,
           backgroundColor: Color(0xFFEDF2FA),
@@ -316,12 +274,12 @@ class AlertsScreen extends StatelessWidget {
           child: const Icon(Icons.person_add_alt_1, color: Color(0xFF4285F4), size: 14),
         );
         break;
-      case _AlertType.expiry:
+      case AlertType.expiry:
         mainIcon = Container(
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xFFE53935), // Red
+            color: const Color(0xFFE53935),
             borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(Icons.access_time, color: Colors.white, size: 24),

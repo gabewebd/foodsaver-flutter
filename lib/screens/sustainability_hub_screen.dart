@@ -119,7 +119,7 @@ class SustainabilityHubScreen extends StatelessWidget {
                 ),
                 child: const CircleAvatar(
                   radius: 35,
-                  backgroundImage: AssetImage('assets/images/home.png'), // Placeholder or custom
+                  backgroundImage: AssetImage('assets/images/oranges.png'), // Placeholder or custom
                   backgroundColor: Color(0xFFE8F5E9),
                 ),
               ),

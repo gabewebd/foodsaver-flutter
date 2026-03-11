@@ -62,8 +62,8 @@ class MainShellCoordinator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _constructTopBranding(context),
-      // Binalot natin yung body sa ValueListenableBuilder
+      // Aguiluz, nilipat ko yung main header sa HomeFeedScreen para di mag-doble sa ibang screens.
+      // Velasquez, check mo 'tong Scaffold natin, wala na siyang global AppBar.
       body: ValueListenableBuilder<int>(
         valueListenable: _navController,
         builder: (context, activeIndex, child) {
@@ -71,37 +71,6 @@ class MainShellCoordinator extends StatelessWidget {
         },
       ),
       bottomNavigationBar: _assembleBottomRouting(),
-    );
-  }
-
-  // Left-aligned Figma design header natin
-  PreferredSizeWidget _constructTopBranding(BuildContext context) {
-    return AppBar(
-      toolbarHeight: 70, 
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'FoodSaver',
-            style: GoogleFonts.nunito(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: 0.2,
-            ),
-          ),
-          Text(
-            "Don't Waste It. Share It.",
-            style: GoogleFonts.nunito(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: Colors.white.withOpacity(0.9), 
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      elevation: 0.0, 
     );
   }
 
