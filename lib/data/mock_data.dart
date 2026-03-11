@@ -1,10 +1,8 @@
-import 'package:flutter/foundation.dart'; // Velasquez, kailangan natin 'to para sa ValueNotifier.
+import 'package:flutter/foundation.dart'; // Velasquez, kailangan natin 'to para sa ValueNotifier at Uint8List.
 
-// Velasquez: dito yung blueprint ng data natin para sa FoodSaver.
-// Gawa muna tayo ng mock data para may ma-display si Aguiluz sa Home Feed.
-// Velasquez: Ginawa ko na itong centralized mutable list para pag nag-post si Velasquez, 
-// automatic na lalabas sa Home Feed ni Aguiluz. OK?
-
+// Velasquez: Ito yung updated blueprint natin.
+// Nag-add ako ng 'imageBytes' para pag may pinick si user, yun ang gagamitin.
+// Pag wala, fallback tayo sa 'offlineImage' na asset path.
 class FoodListing {
   final String entryId;
   final String grabTitle;
@@ -14,6 +12,7 @@ class FoodListing {
   final String meetupSpot;
   final String posterAlias;
   final String offlineImage;
+  final Uint8List? imageBytes; // Velasquez, ito yung key para sa dynamic images!
 
   FoodListing({
     required this.entryId,
@@ -24,10 +23,10 @@ class FoodListing {
     required this.meetupSpot,
     required this.posterAlias,
     required this.offlineImage,
+    this.imageBytes,
   });
 
-  // Velasquez: Eto yung centralized "mutable list in memory".
-  // Ginamit natin ang ValueNotifier para makapag-listen yung UI sa mga updates.
+  // Velasquez: Centralized list natin na reactive.
   static final ValueNotifier<List<FoodListing>> foodListNotifier = ValueNotifier<List<FoodListing>>([
     FoodListing(
       entryId: 'fs_001_pasta',
@@ -61,21 +60,14 @@ class FoodListing {
     ),
   ]);
 
-  // Maintain natin itong method pero point na lang sa notifier value.
-  static List<FoodListing> fetchMockData() {
-    return foodListNotifier.value;
-  }
-
-  // Velasquez: Logic para mag-add ng bagong item sa global state.
   static void addListing(FoodListing newListing) {
+    // Velasquez: Spread operator para ma-trigger yung ValueNotifier refresh.
     foodListNotifier.value = [...foodListNotifier.value, newListing];
   }
 }
 
-// Yamaguchi: Dito ko nilagay yung Alerts logic natin. 
-// Para 'to sa dynamic list mo sa Alerts Screen.
+// Yamaguchi: Standard alerts logic, no changes needed here yet.
 enum AlertType { claim, nearby, follower, expiry }
-
 class AlertListing {
   final String alertId;
   final AlertType type;
@@ -105,28 +97,6 @@ class AlertListing {
         timeAgo: '2 min ago',
         isNew: true,
         hasActions: true,
-      ),
-      AlertListing(
-        alertId: 'al_002',
-        type: AlertType.nearby,
-        title: 'New Item Nearby',
-        description: 'Fresh bread available in Building C',
-        timeAgo: '15 min ago',
-        isNew: true,
-      ),
-      AlertListing(
-        alertId: 'al_003',
-        type: AlertType.follower,
-        title: 'New Follower',
-        description: 'John started following your posts',
-        timeAgo: '1 hour ago',
-      ),
-      AlertListing(
-        alertId: 'al_004',
-        type: AlertType.expiry,
-        title: 'Expiry Alert',
-        description: 'Your yogurt expires in 2 days',
-        timeAgo: '3 hours ago',
       ),
     ];
   }

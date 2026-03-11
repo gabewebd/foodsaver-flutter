@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// Camus, ikaw naka-assign dito sa styling ng Sustainability Hub diba? 
+// Ito na yung base layout natin para sa profile at impact stats ng user.
 class SustainabilityHubScreen extends StatelessWidget {
   const SustainabilityHubScreen({super.key});
 
@@ -12,6 +14,7 @@ class SustainabilityHubScreen extends StatelessWidget {
     // the AppBar dynamic or hidden for this tab in main.dart.
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8F1),
+      // Binalot natin ng SingleChildScrollView para pwede i-scroll at iwas overflow sa maliliit na screen
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -39,6 +42,7 @@ class SustainabilityHubScreen extends StatelessWidget {
     );
   }
 
+  // Eto yung green header sa pinakataas.
   Widget _buildHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 30),
@@ -75,6 +79,7 @@ class SustainabilityHubScreen extends StatelessWidget {
               ),
             ],
           ),
+          // Settings button icon sa upper right
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -92,6 +97,8 @@ class SustainabilityHubScreen extends StatelessWidget {
     );
   }
 
+  // Dito yung user profile. Hardcoded muna natin pangalan ni Mika para sa UI milestone.
+  // Palitan na lang natin ng dynamic data from database sa susunod na phase.
   Widget _buildProfileCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -123,6 +130,7 @@ class SustainabilityHubScreen extends StatelessWidget {
                   backgroundColor: Color(0xFFE8F5E9),
                 ),
               ),
+              // Maliit na link/badge icon sa lower right ng picture
               Positioned(
                 bottom: 0,
                 right: 0,
@@ -183,6 +191,7 @@ class SustainabilityHubScreen extends StatelessWidget {
     );
   }
 
+  // Gamification stats! Para ganahan yung users mag-share ng food.
   Widget _buildStatsRow() {
     return Row(
       children: [
@@ -207,6 +216,7 @@ class SustainabilityHubScreen extends StatelessWidget {
     );
   }
 
+  // Helper widget para hindi tayo paulit-ulit ng code sa paggawa ng stat cards
   Widget _buildStatCard({
     required IconData icon,
     required String value,
@@ -258,6 +268,7 @@ class SustainabilityHubScreen extends StatelessWidget {
     );
   }
 
+  // Dito papakita yung mga active at claimed na listings ng user
   Widget _buildListingsSection() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -292,6 +303,7 @@ class SustainabilityHubScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          // Hardcoded placeholder listings mula sa mock data natin
           _buildListingItem(
             title: 'Unopened Pasta Sauce',
             status: 'Claimed',
@@ -310,6 +322,7 @@ class SustainabilityHubScreen extends StatelessWidget {
     );
   }
 
+  // Helper din 'to para malinis tingnan yung code sa loob ng _buildListingsSection
   Widget _buildListingItem({
     required String title,
     required String status,
@@ -370,6 +383,7 @@ class SustainabilityHubScreen extends StatelessWidget {
     );
   }
 
+  // Extra section lang 'to for engagement. Nice addition yung cat tip!
   Widget _buildDailyTipSection() {
     return Container(
       padding: const EdgeInsets.all(20),

@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/mock_data.dart';
 
+// Yamaguchi, ikaw bahala dito sa AlertsScreen ha. Dito natin papakita lahat ng notifications ng users natin.
 class AlertsScreen extends StatelessWidget {
   const AlertsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Yamaguchi, dito natin hinihila yung mock alerts natin.
+    // Yamaguchi, dito natin hinihila yung mock alerts natin. Pag may backend na tayo, dito natin i-integrate 'yon.
     final List<AlertListing> alerts = AlertListing.fetchMockAlerts();
 
     return Scaffold(
@@ -19,7 +20,7 @@ class AlertsScreen extends StatelessWidget {
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               physics: const BouncingScrollPhysics(),
-              // Yamaguchi: Ito na yung dynamic list natin base sa data.
+              // Yamaguchi: Ito na yung dynamic list natin base sa data. Bawat scroll, build lang nang build.
               itemCount: alerts.length,
               itemBuilder: (context, index) {
                 final alert = alerts[index];
@@ -33,6 +34,7 @@ class AlertsScreen extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, int newCount) {
+    // Camus, check mo kung okay na 'tong green header natin ha, para match sa Sustainability Hub mo.
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 30),
@@ -88,6 +90,7 @@ class AlertsScreen extends StatelessWidget {
   }
 
   Widget _buildAlertCard(AlertListing alert) {
+    // Velasquez, nilagyan ko ng custom borders at accent colors depende kung bago yung notif para pansinin agad.
     Color borderColor = Colors.grey.withOpacity(0.1);
     if (alert.type == AlertType.claim && alert.isNew) borderColor = Colors.green.withOpacity(0.3);
     if (alert.type == AlertType.nearby && alert.isNew) borderColor = Colors.orange.withOpacity(0.3);
@@ -174,6 +177,7 @@ class AlertsScreen extends StatelessWidget {
                         Row(
                           children: [
                             ElevatedButton(
+                              // Yamzon, pag-click nitong "View Details", i-route mo na papunta dun sa Food Item Detailed View screen mo ha!
                               onPressed: () {},
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0F9D58),
@@ -195,6 +199,7 @@ class AlertsScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 10),
                             TextButton(
+                              // Aguiluz, gawa tayo ng logic mamaya para ma-hide 'to kapag dinismiss ng user.
                               onPressed: () {},
                               style: TextButton.styleFrom(
                                 backgroundColor: Colors.grey[100],
@@ -229,6 +234,7 @@ class AlertsScreen extends StatelessWidget {
   }
 
   Widget _buildIconForType(AlertType type, bool isNew) {
+    // Aguiluz, nag-setup na rin ako ng iba't ibang icons per alert type para hindi boring tignan yung list.
     Widget mainIcon;
     Widget? bottomBadge;
 

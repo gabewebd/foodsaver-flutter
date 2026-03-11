@@ -5,13 +5,6 @@ import 'package:image_picker/image_picker.dart'; // Yamzon, ito yung magbubukas 
 import 'package:image_cropper/image_cropper.dart'; // Camus, ito yung para sa pag-crop ng photos.
 import '../data/mock_data.dart'; // Velasquez: Kailangan natin 'to para mag-add sa global list.
 
-/* 
-Aguiluz, eto yung kailangan mo sa pubspec.yaml para gumana 'to:
-dependencies:
-  image_picker: ^1.0.7
-  image_cropper: ^5.0.1
-*/
-
 class ShareFoodScreen extends StatefulWidget {
   const ShareFoodScreen({super.key});
 
@@ -24,7 +17,6 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
   final _formKey = GlobalKey<FormState>();
   
   // Controllers para ma-capture natin yung input ni user.
-  // Velasquez, ito yung mga saksakan natin sa Supabase later.
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController(); // Velasquez, added description controller for backstory.
   final TextEditingController _expiryController = TextEditingController();
@@ -39,27 +31,28 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _descriptionController.dispose(); // Velasquez, dispose the new controller.
+    _descriptionController.dispose();
     _expiryController.dispose();
     _locationController.dispose();
     super.dispose();
   }
 
   // Yamzon, ito yung function para kumuha ng image sa gallery o camera.
-  // Yamaguchi, dito tatawagin yung native image picker library natin.
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
         _tempImageFile = image;
       });
-      // Velasquez, pwedeng i-auto trigger yung crop dito or wait sa manual button tap.
-      // For now, sine-save muna natin sa temp file.
+      // Pwede na ring i-load muna sa preview habang di pa na-crop.
+      final initialBytes = await image.readAsBytes();
+      setState(() {
+        _croppedImageBytes = initialBytes;
+      });
     }
   }
 
   // Camus, ito yung logic para sa pag-crop ng image gamit yung high-fidelity UI.
-  // Yamaguchi, dito tatawagin yung cropper library na may rotation at sliders.
   Future<void> _cropImage() async {
     if (_tempImageFile == null) return;
     
@@ -94,12 +87,10 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
     );
 
     if (croppedFile != null) {
-      // Velasquez, kukunin na natin yung raw bytes ng cropped photo.
       final bytes = await croppedFile.readAsBytes();
       setState(() {
         _croppedImageBytes = bytes;
       });
-      // Camus, gumagana na yung crop pero single image flow pa lang ah.
     }
   }
 
@@ -109,7 +100,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
       backgroundColor: const Color(0xFFF9F9F9),
       body: SingleChildScrollView(
         child: Form(
-          key: _formKey, // Velasquez, binalot natin ng Form widget ah.
+          key: _formKey, 
           child: Column(
             children: [
               _buildHeader(context),
@@ -145,27 +136,21 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Aguiluz, tinanggal ko na yung back button dito kasi part na siya ng main shell navigation natin.
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Share Food',
-                style: GoogleFonts.nunito(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Text(
-                'Help reduce waste in your community',
-                style: GoogleFonts.nunito(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
+          Text(
+            'Share Food',
+            style: GoogleFonts.nunito(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            'Help reduce waste in your community',
+            style: GoogleFonts.nunito(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ],
       ),
@@ -211,7 +196,6 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          // Yamzon, dito na yung dynamic rendering natin using Image.memory().
           ClipRRect(
             borderRadius: BorderRadius.circular(20),
             child: _croppedImageBytes != null
@@ -235,14 +219,6 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
                           style: GoogleFonts.nunito(
                             color: Colors.grey[500],
                             fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Upload and crop your food photo',
-                          style: GoogleFonts.nunito(
-                            color: Colors.grey[400],
-                            fontSize: 12,
                           ),
                         ),
                       ],
@@ -334,7 +310,6 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
             hint: 'What is it? (e.g., Fresh Bagels)',
           ),
           const SizedBox(height: 15),
-          // Velasquez, added description field for backstory as requested.
           _buildFormField(
             controller: _descriptionController,
             icon: Icons.description_outlined,
@@ -358,7 +333,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
-                // Velasquez, dito yung checking kung valid yung fields at kung may cropped image na.
+                // Velasquez, validate if user has picked and cropped an image.
                 if (_croppedImageBytes == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -370,21 +345,22 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
                 }
 
                 if (_formKey.currentState!.validate()) {
-                  // Velasquez, instantiating the new listing with perfectly aligned data.
+                  // Velasquez: instantiate new FoodListing with the captured bytes.
                   final newEntry = FoodListing(
-                    entryId: DateTime.now().toString(), // Velasquez, generated unique entry ID.
+                    entryId: DateTime.now().toString(),
                     grabTitle: _nameController.text,
-                    backstory: _descriptionController.text, // Map to backstory.
+                    backstory: _descriptionController.text,
                     timeWindow: _expiryController.text,
-                    dropDistance: '0.5 mi', // Hardcoded as per mock logic requirements.
+                    dropDistance: '0.5 mi', 
                     meetupSpot: _locationController.text,
-                    posterAlias: 'Current User', // Hardcoded placeholder for now.
-                    offlineImage: 'assets/images/pasta_sauce.png', // Temporary placeholder asset.
+                    posterAlias: 'Current User', 
+                    offlineImage: 'assets/images/image.png', // Fallback for model field
+                    imageBytes: _croppedImageBytes, // Velasquez, ipasa natin yung bytes dito!
                   );
 
+                  // Velasquez: Append to global list.
                   FoodListing.addListing(newEntry);
 
-                  // Velasquez, clear natin controllers at state after successful post.
                   _nameController.clear();
                   _descriptionController.clear();
                   _expiryController.clear();

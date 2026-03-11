@@ -3,8 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/mock_data.dart';
 
 class FoodItemScreen extends StatelessWidget {
-  // Yamzon, ito yung data na pinasa ni Aguiluz galing sa Home Feed.
-  // Wag mong buburahin 'to paps, dito galing lahat ng info (image, title, etc.)
   final FoodListing foodData;
 
   const FoodItemScreen({super.key, required this.foodData});
@@ -16,12 +14,11 @@ class FoodItemScreen extends StatelessWidget {
     const Color lightGrey = Color(0xFFF8F9FA);
 
     return Scaffold(
-      backgroundColor: brandGreen, // Match yung top background color sa image
+      backgroundColor: brandGreen, 
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // Top Navigation Bar - Replicating the back, heart, and share icons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Row(
@@ -51,19 +48,24 @@ class FoodItemScreen extends StatelessWidget {
             Expanded(
               child: Stack(
                 children: [
-                  // Background Image - Yamzon, dito naka-inject yung image from mock_data
                   Positioned(
                     top: 0,
                     left: 0,
                     right: 0,
                     height: MediaQuery.of(context).size.height * 0.4,
-                    child: Image.asset(
-                      foodData.offlineImage,
-                      fit: BoxFit.cover,
-                    ),
+                    // Velasquez: Conditional rendering din dito! 
+                    // Support para sa newly picked memory images at legacy assets.
+                    child: foodData.imageBytes != null 
+                      ? Image.memory(
+                          foodData.imageBytes!,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.asset(
+                          foodData.offlineImage,
+                          fit: BoxFit.cover,
+                        ),
                   ),
                   
-                  // "3 hours" Badge on Image - Replicating the red timer badge
                   Positioned(
                     top: 20,
                     right: 20,
@@ -90,7 +92,6 @@ class FoodItemScreen extends StatelessWidget {
                     ),
                   ),
 
-                  // Content Card - The white rounded card that overlaps the image
                   Positioned.fill(
                     child: DraggableScrollableSheet(
                       initialChildSize: 0.65,
@@ -108,7 +109,6 @@ class FoodItemScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Title - Yamzon, dito galing sa foodData.grabTitle
                                 Text(
                                   foodData.grabTitle,
                                   style: GoogleFonts.nunito(
@@ -119,7 +119,6 @@ class FoodItemScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 12),
                                 
-                                // Badges Row
                                 Row(
                                   children: [
                                     _Badge(
@@ -129,7 +128,7 @@ class FoodItemScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 8),
                                     _Badge(
-                                      text: '3 jars available',
+                                      text: 'Available',
                                       backgroundColor: const Color(0xFFE8F5E9),
                                       textColor: brandGreen,
                                       icon: Icons.check_circle_outline,
@@ -141,14 +140,12 @@ class FoodItemScreen extends StatelessWidget {
                                 Divider(color: Colors.grey.shade200),
                                 const SizedBox(height: 16),
                                 
-                                // User Info Section - Replicating Mark Dave's profile row
                                 Row(
                                   children: [
                                     CircleAvatar(
                                       radius: 24,
                                       backgroundColor: Colors.grey.shade200,
-                                      // Ginamit muna natin yung default avatar URL habang wala pa tayong poster image field
-                                      backgroundImage: const NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=Mark'),
+                                      backgroundImage: const AssetImage('assets/images/image.png'),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -177,7 +174,7 @@ class FoodItemScreen extends StatelessWidget {
                                             ],
                                           ),
                                           Text(
-                                            '2 hours ago',
+                                            'Just now',
                                             style: GoogleFonts.nunito(
                                               fontSize: 14,
                                               color: Colors.grey.shade500,
@@ -192,7 +189,6 @@ class FoodItemScreen extends StatelessWidget {
                                 Divider(color: Colors.grey.shade200),
                                 const SizedBox(height: 16),
                                 
-                                // Pickup Location Section
                                 Row(
                                   children: [
                                     Container(
@@ -229,7 +225,6 @@ class FoodItemScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 24),
                                 
-                                // Description Box
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(16),
@@ -262,13 +257,11 @@ class FoodItemScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 32),
                                 
-                                // Claim Button - Yamzon, ito yung mag-trigger ng success message.
                                 SizedBox(
                                   width: double.infinity,
                                   height: 60,
                                   child: ElevatedButton(
                                     onPressed: () {
-                                      // Success dialog requirement para sa Milestone 2
                                       showDialog(
                                         context: context,
                                         builder: (context) => AlertDialog(

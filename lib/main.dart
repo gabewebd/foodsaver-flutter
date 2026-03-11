@@ -7,15 +7,17 @@ import 'screens/sustainability_hub_screen.dart';
 
 // Yamzon, nilagay ko na 'to dito kasi pag nag-add tayo ng 
 // camera or local storage packages later, we will need this initialized.
+// Wag mo na galawin 'to paps para iwas error sa build natin!
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const FoodSaverCoreApp());
 }
 
-// Extract natin yung colors sa labas para madali i-edit ni Camus later.
+// Camus, extract natin yung colors sa labas para madali i-edit mo later
+// kung may papalitan ka sa branding ng FoodSaver natin. 
 const _brandGreen = Color(0xFF0F9D58); 
 const _accentOrange = Color(0xFFF57C00);
-const _canvasOffWhite = Color(0xFFF5F7F5);
+const _canvasOffWhite = Color(0xFFF5F7F5); // Linis tignan para di cluttered yung UI, diba?
 
 class FoodSaverCoreApp extends StatelessWidget {
   const FoodSaverCoreApp({super.key});
@@ -23,7 +25,7 @@ class FoodSaverCoreApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false, // Tinanggal ko 'to para malinis tignan pag prinesent natin.
       title: 'FoodSaver MVP',
       theme: ThemeData(
         useMaterial3: true,
@@ -42,28 +44,29 @@ class FoodSaverCoreApp extends StatelessWidget {
   }
 }
 
-// Ginamit nating StatelessWidget imbes na Stateful
+// Ginamit nating StatelessWidget imbes na Stateful para tipid sa memory.
 class MainShellCoordinator extends StatelessWidget {
   MainShellCoordinator({super.key});
 
   // Structural change: ValueNotifier imbes na setState()
-  // Ito yung mag-hahandle ng state nang mas malinis at mas mabilis
+  // Velasquez, ito yung mag-hahandle ng state nang mas malinis at mas mabilis.
+  // Less rebuilds = tipid sa resources at iwas lag sa mga phone natin!
   final ValueNotifier<int> _navController = ValueNotifier<int>(0);
 
-  // Aguiluz, Velasquez, Camus -- dito natin i-plug yung actual screens niyo.
-  // Ito na yung mga totoong classes once nagawa niyo na yung mga files!
+  // Aguiluz, Velasquez, Yamaguchi, Camus, Yamzon -- dito naka-plug yung mga actual screens niyo.
+  // Make sure same yung pangalan ng classes niyo dito sa ini-import natin sa taas ha!
   final List<Widget> _injectedScreens = const [
-    HomeFeedScreen(),        // Index 0: Taps to "Home"
-    ShareFoodScreen(),       // Index 1: Taps to "Post"
-    AlertsScreen(),          // Index 2: Taps to "Alerts"
-    SustainabilityHubScreen()// Index 3: Taps to "Profile"
+    HomeFeedScreen(),        // Index 0: Taps to "Home" (Aguiluz)
+    ShareFoodScreen(),       // Index 1: Taps to "Post" (Velasquez)
+    AlertsScreen(),          // Index 2: Taps to "Alerts" (Yamaguchi)
+    SustainabilityHubScreen()// Index 3: Taps to "Profile" (Camus)
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       // Aguiluz, nilipat ko yung main header sa HomeFeedScreen para di mag-doble sa ibang screens.
-      // Velasquez, check mo 'tong Scaffold natin, wala na siyang global AppBar.
+      // Velasquez, check mo 'tong Scaffold natin, wala na siyang global AppBar. Kanya-kanyang header na tayo per tab.
       body: ValueListenableBuilder<int>(
         valueListenable: _navController,
         builder: (context, activeIndex, child) {
@@ -74,7 +77,7 @@ class MainShellCoordinator extends StatelessWidget {
     );
   }
 
-  // Binalot din natin yung BottomNav sa sarili niyang builder
+  // Yamzon, binalot din natin yung BottomNav sa sarili niyang builder para ito lang nag-uupdate pag nag-switch tab.
   Widget _assembleBottomRouting() {
     return Container(
       decoration: BoxDecoration(
@@ -91,7 +94,7 @@ class MainShellCoordinator extends StatelessWidget {
         builder: (context, activeIndex, child) {
           return BottomNavigationBar(
             currentIndex: activeIndex,
-            // Imbes na setState, update lang natin yung value ng notifier
+            // Imbes na setState, update lang natin yung value ng notifier. Mas efficient 'to mga paps.
             onTap: (index) => _navController.value = index,
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.white,

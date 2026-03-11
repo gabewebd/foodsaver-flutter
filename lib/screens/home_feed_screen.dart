@@ -11,7 +11,6 @@ class HomeFeedScreen extends StatefulWidget {
 }
 
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
-  // Aguiluz, ito yung mag-hahandle ng tinatype sa search bar.
   final TextEditingController _searchController = TextEditingController();
 
   final List<Map<String, dynamic>> categories = [
@@ -23,7 +22,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   String selectedCategory = 'All';
 
-  // Aguiluz, ito yung filtering logic natin based sa search keyword.
   List<FoodListing> _filterListings(List<FoodListing> allListings, String enteredKeyword) {
     if (enteredKeyword.isEmpty) {
       return allListings;
@@ -43,8 +41,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         children: [
           _buildSearchAndFilters(context),
           Expanded(
-            // Aguiluz: Eto yung magic! Binalot natin ng ValueListenableBuilder para mag-refresh agad ang Home Feed
-            // kapag nag-add si Velasquez ng bagong item sa kabilang screen. Reactive na tayo paps!
             child: ValueListenableBuilder<List<FoodListing>>(
               valueListenable: FoodListing.foodListNotifier,
               builder: (context, allListings, child) {
@@ -117,7 +113,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (value) => setState(() {}), // Force rebuild to trigger filtering logic in builder.
+                    onChanged: (value) => setState(() {}),
                     style: GoogleFonts.nunito(fontSize: 15),
                     decoration: InputDecoration(
                       hintText: 'Search for food items...',
@@ -216,12 +212,21 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(18),
-                    child: Image.asset(
-                      item.offlineImage,
-                      width: 110,
-                      height: 110,
-                      fit: BoxFit.cover,
-                    ),
+                    // Velasquez: Eto yung magic conditional rendering natin!
+                    // Kung may imageBytes, gamitin ang Image.memory. Kung wala, Image.asset.
+                    child: item.imageBytes != null 
+                      ? Image.memory(
+                          item.imageBytes!,
+                          width: 110,
+                          height: 110,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.asset(
+                          item.offlineImage,
+                          width: 110,
+                          height: 110,
+                          fit: BoxFit.cover,
+                        ),
                   ),
                   Positioned(
                     top: 8,
@@ -286,7 +291,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                       children: [
                         const CircleAvatar(
                           radius: 10, 
-                          backgroundImage: AssetImage('assets/images/image.png'),
+                          backgroundImage: AssetImage('assets/images/oranges.png'),
                         ),
                         const SizedBox(width: 6),
                         Text(item.posterAlias, style: GoogleFonts.nunito(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w600)),
