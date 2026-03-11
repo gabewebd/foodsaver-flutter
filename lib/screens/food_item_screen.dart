@@ -155,7 +155,7 @@ class FoodItemScreen extends StatelessWidget {
                                       radius: 24,
                                       backgroundColor: Colors.grey.shade200,
                                       // Default avatar muna habang wala pang profile picture feature
-                                      backgroundImage: const AssetImage('assets/images/image.png'),
+                                      backgroundImage: const AssetImage('assets/images/oranges.png'),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
