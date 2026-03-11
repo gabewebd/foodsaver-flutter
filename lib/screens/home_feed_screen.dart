@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/mock_data.dart';
 import 'food_item_screen.dart';
 
+// Aguiluz, dito yung main feed natin. Make sure working yung search bar mo dito ha!
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
 
@@ -11,8 +12,11 @@ class HomeFeedScreen extends StatefulWidget {
 }
 
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
+  // Eto yung magha-handle nung text input ng user for searching.
   final TextEditingController _searchController = TextEditingController();
 
+  // Camus, eto yung categories natin. Naglagay ako ng dummy icons for now.
+  // Pwede natin palitan 'to later pag nag-finalize na tayo ng UI assets.
   final List<Map<String, dynamic>> categories = [
     {'name': 'All', 'icon': Icons.auto_awesome_outlined},
     {'name': 'Urgent', 'icon': Icons.local_fire_department_outlined},
@@ -20,8 +24,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     {'name': 'Popular', 'icon': Icons.trending_up_outlined},
   ];
 
+  // Default filter natin is 'All' para makita agad lahat pagka-open ng app.
   String selectedCategory = 'All';
 
+  // Aguiluz, basic string matching lang muna 'tong filter natin for the MVP.
+  // Case-insensitive siya para kahit ano i-type, lalabas. 
+  // TODO: Pag kinabit na natin sa Supabase, sa backend na natin gawin yung filtering para iwas lag.
   List<FoodListing> _filterListings(List<FoodListing> allListings, String enteredKeyword) {
     if (enteredKeyword.isEmpty) {
       return allListings;
@@ -36,14 +44,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFF1F8F1),
+      color: const Color(0xFFF1F8F1), // Very light green para clean and hindi cluttered tignan
       child: Column(
         children: [
           _buildSearchAndFilters(context),
           Expanded(
+            // Velasquez, working na yung ValueNotifier mo dito! 
+            // Nagre-refresh na siya automatic sa Home Feed pag may in-upload na bagong pagkain.
             child: ValueListenableBuilder<List<FoodListing>>(
               valueListenable: FoodListing.foodListNotifier,
               builder: (context, allListings, child) {
+                // Fini-filter muna natin bago i-build yung listview
                 final filteredListings = _filterListings(allListings, _searchController.text);
                 
                 return ListView.builder(
@@ -62,11 +73,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
+  // Eto yung malaking green header natin sa taas.
   Widget _buildSearchAndFilters(BuildContext context) {
     final primaryColor = Theme.of(context).primaryColor;
     
     return Container(
       width: double.infinity,
+      // Linakihan ko yung top padding para di kainin ng notch ng phone
       padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24, top: 60),
       decoration: BoxDecoration(
         color: primaryColor,
@@ -92,6 +105,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             ),
           ),
           const SizedBox(height: 20),
+          
+          // Aguiluz: Search Bar UI container
           Container(
             height: 50,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -113,6 +128,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
+                    // Force rebuild kapag may tinype para mag-trigger yung _filterListings
                     onChanged: (value) => setState(() {}),
                     style: GoogleFonts.nunito(fontSize: 15),
                     decoration: InputDecoration(
@@ -130,6 +146,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             ),
           ),
           const SizedBox(height: 20),
+          
+          // Horizontal list para sa categories (All, Urgent, Nearby, Popular)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -141,6 +159,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   child: GestureDetector(
                     onTap: () => setState(() => selectedCategory = cat['name']),
                     child: AnimatedContainer(
+                      // Smooth transition para hindi biglang nagpapalit ng color
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
@@ -179,6 +198,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
+  // Yamzon, pag kinlick 'to, ipapasa na natin yung buong FoodListing object papunta sa screen mo.
   Widget _buildFoodCard(FoodListing item) {
     return GestureDetector(
       onTap: () {
@@ -194,6 +214,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
+          // Subtle shadow para hindi flat tignan yung lists
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.04),
@@ -212,8 +233,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(18),
-                    // Velasquez: Eto yung magic conditional rendering natin!
-                    // Kung may imageBytes, gamitin ang Image.memory. Kung wala, Image.asset.
+                    // Velasquez: Eto yung workaround natin sa MVP!
+                    // Pag in-upload galing phone, Image.memory gagamitin. Pag hardcoded sa mock_data, Image.asset.
                     child: item.imageBytes != null 
                       ? Image.memory(
                           item.imageBytes!,
@@ -270,7 +291,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         color: const Color(0xFF2D3142),
                       ),
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis, // Para di masira layout pag sobrang haba ng title
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -291,6 +312,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                       children: [
                         const CircleAvatar(
                           radius: 10, 
+                          // Temporary placeholder muna habang wala tayong user accounts
                           backgroundImage: AssetImage('assets/images/oranges.png'),
                         ),
                         const SizedBox(width: 6),
@@ -300,6 +322,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     const SizedBox(height: 10),
                     Row(
                       children: [
+                        // Hardcoded distance and time for now, gagawin natin dynamic next week
                         _buildTag('3 hours', const Color(0xFFFFF4EC), Colors.orange),
                         const SizedBox(width: 8),
                         _buildTag(item.dropDistance, const Color(0xFFE8F5E9), const Color(0xFF2E7D32)),
@@ -315,6 +338,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
+  // Helper widget natin para mabilis mag-gawa ng maliliit na tags sa UI
   Widget _buildTag(String label, Color bgColor, Color textColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

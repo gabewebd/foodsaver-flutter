@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/mock_data.dart';
 
+// Yamzon, dito ko na kinonek yung FoodItemScreen mo.
+// Pag kinlick ng user yung card sa Home Feed ni Aguiluz, dito pupunta 'yun.
 class FoodItemScreen extends StatelessWidget {
   final FoodListing foodData;
 
@@ -9,6 +11,8 @@ class FoodItemScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Camus, ginawa kong mas specific yung names ng variables dito.
+    // Para 'di tayo malito pag may babaguhin tayo sa colors ng FoodSaver theme natin later.
     const Color brandGreen = Color(0xFF0F9D58);
     const Color accentOrange = Color(0xFFF57C00);
     const Color lightGrey = Color(0xFFF8F9FA);
@@ -16,7 +20,7 @@ class FoodItemScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: brandGreen, 
       body: SafeArea(
-        bottom: false,
+        bottom: false, // In-off ko 'to para umabot hanggang ilalim yung puting sheet.
         child: Column(
           children: [
             Padding(
@@ -24,18 +28,21 @@ class FoodItemScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _CircularIconButton(
+                  _FoodItemIconButton(
                     icon: Icons.arrow_back_ios_new,
                     onPressed: () => Navigator.pop(context),
                   ),
                   Row(
                     children: [
-                      _CircularIconButton(
+                      _FoodItemIconButton(
+                        // Yamaguchi, i-link mo 'to sa Favorites feature mo pag gumawa na tayo ng database ha?
+                        // Placeholder lang muna siya ngayon.
                         icon: Icons.favorite_border,
                         onPressed: () {},
                       ),
                       const SizedBox(width: 12),
-                      _CircularIconButton(
+                      _FoodItemIconButton(
+                        // Pwede natin 'to gamitan ng share_plus package sa susunod na sprint!
                         icon: Icons.share_outlined,
                         onPressed: () {},
                       ),
@@ -53,8 +60,8 @@ class FoodItemScreen extends StatelessWidget {
                     left: 0,
                     right: 0,
                     height: MediaQuery.of(context).size.height * 0.4,
-                    // Velasquez: Conditional rendering din dito! 
-                    // Support para sa newly picked memory images at legacy assets.
+                    // Velasquez, ito yung conditional rendering natin! 
+                    // Eto nag-aayos nung issue natin sa image picking vs mock data assets.
                     child: foodData.imageBytes != null 
                       ? Image.memory(
                           foodData.imageBytes!,
@@ -79,6 +86,8 @@ class FoodItemScreen extends StatelessWidget {
                         children: [
                           const Icon(Icons.access_time, color: Colors.white, size: 16),
                           const SizedBox(width: 4),
+                          // Naka-hardcode muna yung 3 hours. 
+                          // Yamzon, compute natin 'to ng maayos pag may date created na sa model natin next week.
                           Text(
                             '3 hours',
                             style: GoogleFonts.nunito(
@@ -121,13 +130,13 @@ class FoodItemScreen extends StatelessWidget {
                                 
                                 Row(
                                   children: [
-                                    _Badge(
+                                    _StatusBadge(
                                       text: 'Expires Today!',
                                       backgroundColor: const Color(0xFFFFEBEE),
                                       textColor: Colors.red.shade700,
                                     ),
                                     const SizedBox(width: 8),
-                                    _Badge(
+                                    _StatusBadge(
                                       text: 'Available',
                                       backgroundColor: const Color(0xFFE8F5E9),
                                       textColor: brandGreen,
@@ -145,6 +154,7 @@ class FoodItemScreen extends StatelessWidget {
                                     CircleAvatar(
                                       radius: 24,
                                       backgroundColor: Colors.grey.shade200,
+                                      // Default avatar muna habang wala pang profile picture feature
                                       backgroundImage: const AssetImage('assets/images/image.png'),
                                     ),
                                     const SizedBox(width: 12),
@@ -212,7 +222,7 @@ class FoodItemScreen extends StatelessWidget {
                                           ),
                                         ),
                                         Text(
-                                          foodData.meetupSpot,
+                                          foodData.meetupSpot, // Hihilain niya 'to sa mock_data natin
                                           style: GoogleFonts.nunito(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
@@ -262,6 +272,8 @@ class FoodItemScreen extends StatelessWidget {
                                   height: 60,
                                   child: ElevatedButton(
                                     onPressed: () {
+                                      // Aguiluz, pag pinindot 'to, gawa tayo ng push notification para maka-receive
+                                      // ng alert yung nag-post doon sa AlertsScreen na hawak ni Yamaguchi.
                                       showDialog(
                                         context: context,
                                         builder: (context) => AlertDialog(
@@ -318,11 +330,13 @@ class FoodItemScreen extends StatelessWidget {
   }
 }
 
-class _CircularIconButton extends StatelessWidget {
+// Iniba ko name para hindi masyadong generic. Ginamit ko as helper widget para 
+// hindi humaba yung code natin sa taas.
+class _FoodItemIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
 
-  const _CircularIconButton({required this.icon, required this.onPressed});
+  const _FoodItemIconButton({required this.icon, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -339,13 +353,14 @@ class _CircularIconButton extends StatelessWidget {
   }
 }
 
-class _Badge extends StatelessWidget {
+// Same dito, renamed from _Badge to _StatusBadge para klaro kung para saan.
+class _StatusBadge extends StatelessWidget {
   final String text;
   final Color backgroundColor;
   final Color textColor;
   final IconData? icon;
 
-  const _Badge({
+  const _StatusBadge({
     required this.text,
     required this.backgroundColor,
     required this.textColor,
