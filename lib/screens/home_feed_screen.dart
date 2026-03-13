@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../data/mock_data.dart';
+import '../models/food_listing.dart';
+import '../data/supabase_service.dart'; 
+import '../utils/date_utils.dart'; // Unified Time Utils
 import 'food_item_screen.dart';
+import 'my_listing_screen.dart'; 
 
-// Aguiluz, dito yung main feed natin. Make sure working yung search bar mo dito ha!
+// Aguiluz, Welcome sa updated main feed natin! 
+// Tinanggal na natin yung fake filters, real-time time-based filtering na tayo.
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
 
@@ -12,53 +16,159 @@ class HomeFeedScreen extends StatefulWidget {
 }
 
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
-  // Eto yung magha-handle nung text input ng user for searching.
   final TextEditingController _searchController = TextEditingController();
+  String _selectedFilter = 'All';
 
-  // Camus, eto yung categories natin. Naglagay ako ng dummy icons for now.
-  // Pwede natin palitan 'to later pag nag-finalize na tayo ng UI assets.
   final List<Map<String, dynamic>> categories = [
     {'name': 'All', 'icon': Icons.auto_awesome_outlined},
-    {'name': 'Urgent', 'icon': Icons.local_fire_department_outlined},
-    {'name': 'Nearby', 'icon': Icons.location_on_outlined},
-    {'name': 'Popular', 'icon': Icons.trending_up_outlined},
+    {'name': 'Urgent', 'icon': Icons.local_fire_department_outlined}, // <= 24 hours
+    {'name': 'Soon', 'icon': Icons.timer_outlined}, // 1 - 3 days
+    {'name': 'Flexible', 'icon': Icons.calendar_today_outlined}, // >= 4 days or none
   ];
 
-  // Default filter natin is 'All' para makita agad lahat pagka-open ng app.
-  String selectedCategory = 'All';
-
-  // Aguiluz, basic string matching lang muna 'tong filter natin for the MVP.
-  // Case-insensitive siya para kahit ano i-type, lalabas. 
-  // TODO: Pag kinabit na natin sa Supabase, sa backend na natin gawin yung filtering para iwas lag.
-  List<FoodListing> _filterListings(List<FoodListing> allListings, String enteredKeyword) {
-    if (enteredKeyword.isEmpty) {
-      return allListings;
-    } else {
-      return allListings
-          .where((item) =>
-              item.grabTitle.toLowerCase().contains(enteredKeyword.toLowerCase()))
-          .toList();
+  // Aguiluz, Ito yung logic natin para sa "Urgent" badge.
+  // Task 4: Bulletproof the "Urgent" math with try-catch
+  bool _isUrgent(FoodListing item) {
+    try {
+      final expiry = DateTime.tryParse(item.timeWindow);
+      if (expiry == null) return false; // Fallback for old text data
+      return expiry.difference(DateTime.now()).inHours <= 24;
+    } catch (e) {
+      return false; // Task 4: Return false instead of crashing
     }
+  }
+
+  // Aguiluz, "New" badge logic. Pag na-post sa loob ng last 12 hours.
+  bool _isNew(FoodListing item) {
+    return item.createdAt.isAfter(DateTime.now().subtract(const Duration(hours: 12)));
+  }
+
+  bool _isExpired(FoodListing item) {
+    if (item.isCompleted) return false;
+    if (item.expiryDate == null) return false;
+    return item.expiryDate!.isBefore(DateTime.now());
+  }
+
+  // Aguiluz, updated filter logic para sa Categories at Search.
+  List<FoodListing> _applyFilters(List<FoodListing> allListings) {
+    List<FoodListing> filtered = allListings;
+
+    // Filter by Category
+    // Base rule: items without expiry are 'Flexible'
+    bool isFlexibleOrNull(FoodListing item) {
+      if (item.expiryDate == null) return true;
+      return item.expiryDate!.difference(DateTime.now()).inHours > 72;
+    }
+
+    bool isSoon(FoodListing item) {
+      if (item.expiryDate == null) return false;
+      final hr = item.expiryDate!.difference(DateTime.now()).inHours;
+      return hr > 24 && hr <= 72;
+    }
+
+    // Default sorting helper (closest expiry first, nulls at bottom)
+    int defaultSort(FoodListing a, FoodListing b) {
+      if (a.expiryDate == null && b.expiryDate == null) return 0;
+      if (a.expiryDate == null) return 1;
+      if (b.expiryDate == null) return -1;
+      return a.expiryDate!.compareTo(b.expiryDate!);
+    }
+
+    if (_selectedFilter == 'Urgent') {
+      filtered = filtered.toList()..sort((a, b) {
+        final aTarget = _isUrgent(a);
+        final bTarget = _isUrgent(b);
+        if (aTarget && !bTarget) return -1;
+        if (!aTarget && bTarget) return 1;
+        return defaultSort(a, b);
+      });
+    } else if (_selectedFilter == 'Soon') {
+      filtered = filtered.toList()..sort((a, b) {
+        final aTarget = isSoon(a);
+        final bTarget = isSoon(b);
+        if (aTarget && !bTarget) return -1;
+        if (!aTarget && bTarget) return 1;
+        return defaultSort(a, b);
+      });
+    } else if (_selectedFilter == 'Flexible') {
+      filtered = filtered.toList()..sort((a, b) {
+        final aTarget = isFlexibleOrNull(a);
+        final bTarget = isFlexibleOrNull(b);
+        if (aTarget && !bTarget) return -1;
+        if (!aTarget && bTarget) return 1;
+        // if both are flexible, sort by newest created
+        if (aTarget && bTarget) return b.createdAt.compareTo(a.createdAt);
+        return defaultSort(a, b);
+      });
+    } else {
+      // "All" filter logic: show all active, sorted by nearest expiry by default
+      filtered = filtered.toList()..sort(defaultSort);
+    }
+
+    // Filter by Search Keyword
+    final keyword = _searchController.text.toLowerCase();
+    if (keyword.isNotEmpty) {
+      filtered = filtered.where((item) => item.grabTitle.toLowerCase().contains(keyword)).toList();
+    }
+
+    // Task 2 & User Request: Hide completed, expired, and claimed items from the feed
+    filtered = filtered.where((item) => !item.isCompleted && !item.isClaimed && !_isExpired(item)).toList();
+
+    return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFF1F8F1), // Very light green para clean and hindi cluttered tignan
+      color: const Color(0xFFF1F8F1), 
       child: Column(
         children: [
           _buildSearchAndFilters(context),
           Expanded(
-            // Velasquez, working na yung ValueNotifier mo dito! 
-            // Nagre-refresh na siya automatic sa Home Feed pag may in-upload na bagong pagkain.
-            child: ValueListenableBuilder<List<FoodListing>>(
-              valueListenable: FoodListing.foodListNotifier,
-              builder: (context, allListings, child) {
-                // Fini-filter muna natin bago i-build yung listview
-                final filteredListings = _filterListings(allListings, _searchController.text);
+            child: StreamBuilder<List<FoodListing>>(
+              stream: SupabaseService.getFoodStream(),
+              builder: (context, snapshot) {
+                // Task 3: Explicitly catch and display errors
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        'Stream Error: ${snapshot.error}', 
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: Color(0xFF0F9D58)));
+                }
                 
+                final allListings = snapshot.data ?? [];
+                if (allListings.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No food items shared yet.',
+                      style: GoogleFonts.nunito(color: Colors.grey),
+                    ),
+                  );
+                }
+
+                final filteredListings = _applyFilters(allListings);
+                
+                if (filteredListings.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No items match your filter.',
+                      style: GoogleFonts.nunito(color: Colors.grey),
+                    ),
+                  );
+                }
+
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.only(left: 20, right: 20, top: 24, bottom: 10),
                   physics: const BouncingScrollPhysics(),
                   itemCount: filteredListings.length,
                   itemBuilder: (context, index) {
@@ -73,53 +183,45 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  // Eto yung malaking green header natin sa taas.
   Widget _buildSearchAndFilters(BuildContext context) {
     final primaryColor = Theme.of(context).primaryColor;
     
     return Container(
       width: double.infinity,
-      // Linakihan ko yung top padding para di kainin ng notch ng phone
       padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24, top: 60),
-      decoration: BoxDecoration(
-        color: primaryColor,
-      ),
+      decoration: BoxDecoration(color: primaryColor),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'FoodSaver',
-            style: GoogleFonts.nunito(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: 0.2,
-            ),
-          ),
-          Text(
-            "Don't Waste It. Share It.",
-            style: GoogleFonts.nunito(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: Colors.white.withOpacity(0.9), 
-            ),
+          // Task 5: Column for title and restored tagline
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'FoodSaver',
+                style: GoogleFonts.nunito(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                "Don't Waste It. Share It.",
+                style: GoogleFonts.nunito(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
-          
-          // Aguiluz: Search Bar UI container
           Container(
             height: 50,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.95),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Row(
               children: [
@@ -128,15 +230,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    // Force rebuild kapag may tinype para mag-trigger yung _filterListings
                     onChanged: (value) => setState(() {}),
-                    style: GoogleFonts.nunito(fontSize: 15),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Search for food items...',
-                      hintStyle: GoogleFonts.nunito(
-                        color: Colors.grey[500],
-                        fontSize: 15,
-                      ),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -146,42 +242,39 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          
-          // Horizontal list para sa categories (All, Urgent, Nearby, Popular)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             child: Row(
               children: categories.map((cat) {
-                bool isSelected = selectedCategory == cat['name'];
+                bool isSelected = _selectedFilter == cat['name'];
                 return Padding(
-                  padding: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.only(right: 12),
                   child: GestureDetector(
-                    onTap: () => setState(() => selectedCategory = cat['name']),
+                    onTap: () => setState(() => _selectedFilter = cat['name']),
                     child: AnimatedContainer(
-                      // Smooth transition para hindi biglang nagpapalit ng color
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                      duration: const Duration(milliseconds: 250),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? Colors.white
-                            : Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
+                        // Aguiluz, updated colors based sa UI ref. 
+                        // Active = White pill, Green text. Inactive = Lighter Green pill, White text.
+                        color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(25),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             cat['icon'],
-                            color: isSelected ? primaryColor : Colors.white,
-                            size: 18,
+                            color: isSelected ? const Color(0xFF0F9D58) : Colors.white,
+                            size: 16,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Text(
                             cat['name'],
                             style: GoogleFonts.nunito(
-                              color: isSelected ? primaryColor : Colors.white,
-                              fontWeight: FontWeight.w700,
+                              color: isSelected ? const Color(0xFF0F9D58) : Colors.white,
+                              fontWeight: FontWeight.w800,
                               fontSize: 14,
                             ),
                           ),
@@ -198,82 +291,53 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  // Yamzon, pag kinlick 'to, ipapasa na natin yung buong FoodListing object papunta sa screen mo.
   Widget _buildFoodCard(FoodListing item) {
+    final expiryInfo = TimeUtils.getExpiresIn(item.expiryDate);
+    final String expiryText = expiryInfo.$1;
+    final Color expiryColor = expiryInfo.$2;
+
+    String badgeText = 'Flexible';
+    if (expiryColor == Colors.red) {
+      badgeText = 'Urgent';
+    } else if (expiryColor == Colors.orange) {
+      badgeText = 'Soon';
+    }
+
     return GestureDetector(
       onTap: () {
+        final isOwner = item.userId == SupabaseService.currentUserId;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => FoodItemScreen(foodData: item),
+            builder: (context) => isOwner ? MyListingScreen(foodData: item) : FoodItemScreen(foodData: item),
           ),
-        );
+        ).then((_) {
+          if (mounted) setState(() {});
+        });
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 18),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
-          // Subtle shadow para hindi flat tignan yung lists
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 6))],
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Stack(
-                clipBehavior: Clip.none,
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(18),
-                    // Velasquez: Eto yung workaround natin sa MVP!
-                    // Pag in-upload galing phone, Image.memory gagamitin. Pag hardcoded sa mock_data, Image.asset.
-                    child: item.imageBytes != null 
-                      ? Image.memory(
-                          item.imageBytes!,
-                          width: 110,
-                          height: 110,
-                          fit: BoxFit.cover,
-                        )
-                      : Image.asset(
-                          item.offlineImage,
-                          width: 110,
-                          height: 110,
-                          fit: BoxFit.cover,
-                        ),
+                    child: item.offlineImage.startsWith('http') 
+                        ? Image.network(item.offlineImage, width: 100, height: 100, fit: BoxFit.cover)
+                        : Image.asset(item.offlineImage, width: 100, height: 100, fit: BoxFit.cover),
                   ),
                   Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF2D36),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.local_fire_department, color: Colors.white, size: 12),
-                          const SizedBox(width: 2),
-                          Text(
-                            'Urgent',
-                            style: GoogleFonts.nunito(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    top: 5,
+                    right: 5,
+                    child: _buildBadge(badgeText, expiryColor),
                   ),
                 ],
               ),
@@ -281,17 +345,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      item.grabTitle.split(' (')[0],
-                      style: GoogleFonts.nunito(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF2D3142),
-                      ),
+                      item.grabTitle,
+                      style: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF2D3142)),
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis, // Para di masira layout pag sobrang haba ng title
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -300,33 +359,36 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            item.meetupSpot.split(',')[0],
-                            style: GoogleFonts.nunito(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                            item.meetupSpot,
+                            style: GoogleFonts.nunito(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
-                        const CircleAvatar(
-                          radius: 10, 
-                          // Temporary placeholder muna habang wala tayong user accounts
-                          backgroundImage: AssetImage('assets/images/oranges.png'),
+                        CircleAvatar(
+                          radius: 12,
+                          backgroundImage: item.posterAvatarUrl != null ? NetworkImage(item.posterAvatarUrl!) : null,
+                          backgroundColor: const Color(0xFFE8F5E9),
+                          child: item.posterAvatarUrl == null ? const Icon(Icons.person, size: 14, color: Color(0xFF0F9D58)) : null,
                         ),
-                        const SizedBox(width: 6),
-                        Text(item.posterAlias, style: GoogleFonts.nunito(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 8),
+                        Text(item.posterAlias, style: GoogleFonts.nunito(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF2D3142))),
+                        const Spacer(),
+                        Text(
+                          TimeUtils.getTimeAgo(item.createdAt),
+                          style: GoogleFonts.nunito(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        // Hardcoded distance and time for now, gagawin natin dynamic next week
-                        _buildTag('3 hours', const Color(0xFFFFF4EC), Colors.orange),
-                        const SizedBox(width: 8),
-                        _buildTag(item.dropDistance, const Color(0xFFE8F5E9), const Color(0xFF2E7D32)),
-                      ],
+                    const SizedBox(height: 6),
+                    Text(
+                      expiryText,
+                      style: GoogleFonts.nunito(fontSize: 12, color: expiryColor, fontWeight: FontWeight.w800),
                     ),
                   ],
                 ),
@@ -338,15 +400,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  // Helper widget natin para mabilis mag-gawa ng maliliit na tags sa UI
-  Widget _buildTag(String label, Color bgColor, Color textColor) {
+
+  Widget _buildBadge(String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6)),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
       child: Text(
         label,
-        style: GoogleFonts.nunito(color: textColor, fontSize: 10, fontWeight: FontWeight.w800),
+        style: GoogleFonts.nunito(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
       ),
     );
   }
+
 }

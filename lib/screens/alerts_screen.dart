@@ -1,40 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../data/mock_data.dart';
+import '../models/alert_listing.dart';
+import '../data/supabase_service.dart';
+import '../utils/date_utils.dart';
 
-// Yamaguchi, ikaw bahala dito sa AlertsScreen ha. Dito natin papakita lahat ng notifications ng users natin.
+// Yamaguchi, Dito mo makikita lahat ng notifications mo. 
+// Stay updated para hindi mo makaligtaan yung mga claim sa items mo!
 class AlertsScreen extends StatelessWidget {
   const AlertsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Yamaguchi, dito natin hinihila yung mock alerts natin. Pag may backend na tayo, dito natin i-integrate 'yon.
-    final List<AlertListing> alerts = AlertListing.fetchMockAlerts();
-
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8F1),
-      body: Column(
-        children: [
-          _buildHeader(context, alerts.where((a) => a.isNew).length),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              physics: const BouncingScrollPhysics(),
-              // Yamaguchi: Ito na yung dynamic list natin base sa data. Bawat scroll, build lang nang build.
-              itemCount: alerts.length,
-              itemBuilder: (context, index) {
-                final alert = alerts[index];
-                return _buildAlertCard(alert);
-              },
-            ),
-          ),
-        ],
+      body: StreamBuilder<List<AlertListing>>(
+        // Yamaguchi, Real-time stream din to para hindi mo na kailangan mag-refresh.
+        stream: SupabaseService.getAlertsStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final alerts = snapshot.data ?? [];
+          final newCount = alerts.where((a) => a.isNew).length;
+
+          return Column(
+            children: [
+              _buildHeader(context, newCount),
+              Expanded(
+                child: alerts.isEmpty 
+                  ? Center(child: Text('No alerts yet.', style: GoogleFonts.nunito(color: Colors.grey)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: alerts.length,
+                      itemBuilder: (context, index) {
+                        final alert = alerts[index];
+                        return _buildAlertCard(context, alert);
+                      },
+                    ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context, int newCount) {
-    // Camus, check mo kung okay na 'tong green header natin ha, para match sa Sustainability Hub mo.
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 30),
@@ -89,206 +102,201 @@ class AlertsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAlertCard(AlertListing alert) {
-    // Velasquez, nilagyan ko ng custom borders at accent colors depende kung bago yung notif para pansinin agad.
-    Color borderColor = Colors.grey.withOpacity(0.1);
-    if (alert.type == AlertType.claim && alert.isNew) borderColor = Colors.green.withOpacity(0.3);
-    if (alert.type == AlertType.nearby && alert.isNew) borderColor = Colors.orange.withOpacity(0.3);
 
+  Widget _buildAlertCard(BuildContext context, AlertListing alert) {
+    bool isGreen = (alert.type == AlertType.claim || alert.type == AlertType.success) && alert.isNew;
+    bool isOrange = (alert.type == AlertType.nearby || alert.type == AlertType.warning) && alert.isNew;
+    
+    Color borderColor = Colors.grey.withOpacity(0.1);
+    if (isGreen) borderColor = const Color(0xFF0F9D58).withOpacity(0.3);
+    if (isOrange) borderColor = const Color(0xFFF57C00).withOpacity(0.3);
     Color? accentColor;
-    if (alert.type == AlertType.claim && alert.isNew) accentColor = Colors.green;
-    if (alert.type == AlertType.nearby && alert.isNew) accentColor = Colors.orange;
+    if (isGreen) accentColor = const Color(0xFF0F9D58);
+    if (isOrange) accentColor = const Color(0xFFF57C00);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 1.5),
+        borderRadius: BorderRadius.circular(24),
+        // Task 3: Border only for NEw alerts
+        border: alert.isNew ? Border.all(color: accentColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.1), width: 1.5) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          if (accentColor != null)
-            Positioned(
-              left: 0,
-              top: 24,
-              bottom: 24,
-              child: Container(
-                width: 5,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left Accent Bar (Image 1)
+            if (alert.isNew && accentColor != null)
+              Container(
+                width: 6,
                 decoration: BoxDecoration(
                   color: accentColor,
                   borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(5),
-                    bottomRight: Radius.circular(5),
+                    topLeft: Radius.circular(20),
+                    bottomLeft: Radius.circular(20),
                   ),
                 ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildIconForType(alert.type, alert.isNew),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            alert.title,
-                            style: GoogleFonts.nunito(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF2D3142),
-                            ),
-                          ),
-                          Text(
-                            alert.timeAgo,
-                            style: GoogleFonts.nunito(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: alert.isNew ? const Color(0xFF0F9D58) : Colors.grey[400],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        alert.description,
-                        style: GoogleFonts.nunito(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      if (alert.hasActions) ...[
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            ElevatedButton(
-                              // Yamzon, pag-click nitong "View Details", i-route mo na papunta dun sa Food Item Detailed View screen mo ha!
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0F9D58),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                                minimumSize: const Size(0, 36),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildIconForType(alert.type, alert.isNew, alert.senderAvatar),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      alert.title,
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w900,
+                                        color: const Color(0xFF2D3142),
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    TimeUtils.getTimeAgo(alert.createdAt),
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: alert.isNew ? const Color(0xFF0F9D58) : Colors.grey[400],
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: Text(
-                                'View Details',
+                              const SizedBox(height: 4),
+                              Text(
+                                alert.description,
                                 style: GoogleFonts.nunito(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF6B7280),
+                                  height: 1.3,
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            TextButton(
-                              // Aguiluz, gawa tayo ng logic mamaya para ma-hide 'to kapag dinismiss ng user.
-                              onPressed: () {},
-                              style: TextButton.styleFrom(
-                                backgroundColor: Colors.grey[100],
-                                foregroundColor: Colors.grey[700],
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                                minimumSize: const Size(0, 36),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                              if (alert.hasActions && alert.isNew) ...[
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    ElevatedButton(
+                                      onPressed: () async {
+                                        // Task: Navigate to details then mark as viewed
+                                        await SupabaseService.markAlertAsViewed(alert.alertId);
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF00C853), // Vibrant Green (Image 1)
+                                        foregroundColor: Colors.white,
+                                        elevation: 2,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                                        minimumSize: const Size(0, 42),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      ),
+                                      child: Text('View Details', style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w900)),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    ElevatedButton(
+                                      onPressed: () async {
+                                        await SupabaseService.markAlertAsViewed(alert.alertId);
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFFF3F4F6),
+                                        foregroundColor: const Color(0xFF4B5563),
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                                        minimumSize: const Size(0, 42),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      ),
+                                      child: Text('Dismiss', style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w900)),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              child: Text(
-                                'Dismiss',
-                                style: GoogleFonts.nunito(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            ],
+                          ),
                         ),
                       ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildIconForType(AlertType type, bool isNew) {
-    // Aguiluz, nag-setup na rin ako ng iba't ibang icons per alert type para hindi boring tignan yung list.
+  Widget _buildIconForType(AlertType type, bool isNew, String? avatarUrl) {
     Widget mainIcon;
     Widget? bottomBadge;
 
     switch (type) {
       case AlertType.claim:
-        mainIcon = const CircleAvatar(
-          radius: 24,
-          backgroundColor: Color(0xFFEDF2FA),
-          child: Icon(Icons.person, color: Color(0xFF5C6BC0), size: 28),
+      case AlertType.success:
+      case AlertType.follower:
+        mainIcon = CircleAvatar(
+          radius: 26,
+          backgroundColor: const Color(0xFFF1F5F9),
+          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+          child: avatarUrl == null ? const Icon(Icons.person, color: Color(0xFF64748B), size: 30) : null,
         );
+        
+        IconData badgeIcon = Icons.check_circle;
+        Color badgeColor = const Color(0xFF0F9D58);
+        if (type == AlertType.follower) {
+          badgeIcon = Icons.person_add_alt_1;
+          badgeColor = const Color(0xFF4285F4);
+        }
+
         bottomBadge = Container(
           padding: const EdgeInsets.all(2),
           decoration: const BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.check_circle, color: Color(0xFF0F9D58), size: 16),
+          child: Icon(badgeIcon, color: badgeColor, size: 18),
         );
         break;
       case AlertType.nearby:
         mainIcon = Container(
-          width: 48,
-          height: 48,
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
-            color: const Color(0xFFFF7043),
-            borderRadius: BorderRadius.circular(14),
+            color: const Color(0xFFF57C00),
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
-        );
-        break;
-      case AlertType.follower:
-        mainIcon = const CircleAvatar(
-          radius: 24,
-          backgroundColor: Color(0xFFEDF2FA),
-          child: Icon(Icons.person, color: Color(0xFF5C6BC0), size: 28),
-        );
-        bottomBadge = Container(
-          padding: const EdgeInsets.all(2),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.person_add_alt_1, color: Color(0xFF4285F4), size: 14),
+          child: const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
         );
         break;
       case AlertType.expiry:
+      case AlertType.warning:
         mainIcon = Container(
-          width: 48,
-          height: 48,
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
-            color: const Color(0xFFE53935),
-            borderRadius: BorderRadius.circular(14),
+            color: type == AlertType.expiry ? const Color(0xFFEF4444) : const Color(0xFFF57C00),
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(Icons.access_time, color: Colors.white, size: 24),
+          child: Icon(type == AlertType.expiry ? Icons.access_time : Icons.warning_amber_rounded, color: Colors.white, size: 28),
         );
         break;
     }
@@ -302,12 +310,12 @@ class AlertsScreen extends StatelessWidget {
             top: -2,
             right: -2,
             child: Container(
-              width: 14,
-              height: 14,
+              width: 16,
+              height: 16,
               decoration: BoxDecoration(
                 color: const Color(0xFF0F9D58),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2.5),
+                border: Border.all(color: Colors.white, width: 3),
               ),
             ),
           ),
