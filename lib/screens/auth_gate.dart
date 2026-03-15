@@ -3,9 +3,9 @@ import 'auth_screen.dart';
 import '../main.dart'; 
 import '../data/supabase_service.dart';
 
-// Velasquez, updated bouncer na tayo!
-// Hindi na tayo nakadepende sa Supabase Auth state.
-// Tinitignan na lang natin kung may 'foodsaver_user_id' sa local storage.
+// Velasquez: Updated bouncer na tayo pre! 
+// Hindi na tayo nakadepende sa Supabase Auth state, masyadong mabagal.
+// Tinitignan na lang natin kung may 'foodsaver_user_id' sa local storage para instant pasok.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -22,7 +22,8 @@ class _AuthGateState extends State<AuthGate> {
     _checkLocalSession();
   }
 
-  // Mark Dave, dito natin chine-check yung local session via shared_preferences.
+  // Mark Dave, dito natin chine-check yung local session. 
+  // Wag mong galawin shared_preferences config natin pre.
   Future<void> _checkLocalSession() async {
     await SupabaseService.initSession();
     if (mounted) {

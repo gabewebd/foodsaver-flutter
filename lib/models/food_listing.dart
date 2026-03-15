@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+// Velasquez: Lead model natin 'to, wag niyo basta-basta babaguhin. 
+// Mark Dave, paki-update if may kailangan sa sustainability metrics.
 class FoodListing {
   final String entryId;
   final String grabTitle;

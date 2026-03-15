@@ -5,8 +5,8 @@ import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
 import 'home_feed_screen.dart';
 
-// Yamzon: Welcome sa detail page ng mga pagkain!
-// Dito makikita ni user lahat ng info bago niya i-claim yung item.
+// Yamzon: Welcome sa detail page ng mga pagkain! 
+// Dito tinitignan ni user lahat ng details bago i-claim. Paki-test yung claim button!
 class FoodItemScreen extends StatefulWidget {
   final FoodListing foodData;
 

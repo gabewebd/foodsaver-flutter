@@ -4,8 +4,8 @@ import '../models/alert_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
 
-// Yamaguchi, Dito mo makikita lahat ng notifications mo. 
-// Stay updated para hindi mo makaligtaan yung mga claim sa items mo!
+// Yamaguchi, Dito mo na-monitor lahat ng ganap sa app. 
+// Stay updated pre para mabilis yung response sa mga claims!
 class AlertsScreen extends StatelessWidget {
   const AlertsScreen({super.key});
 
@@ -14,7 +14,7 @@ class AlertsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8F1),
       body: StreamBuilder<List<AlertListing>>(
-        // Yamaguchi, Real-time stream din to para hindi mo na kailangan mag-refresh.
+        // Yamaguchi: Real-time stream to pre, no need to refresh. Matic lilitaw yung bago.
         stream: SupabaseService.getAlertsStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

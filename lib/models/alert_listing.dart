@@ -1,3 +1,5 @@
+// Yamaguchi: Wag mo muna galawin 'tong AlertType, baka mag-crash yung fetch function.
+// Inayos ko na 'to para sa real-time updates natin.
 enum AlertType { claim, nearby, follower, expiry, success, warning }
 
 class AlertListing {

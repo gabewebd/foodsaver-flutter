@@ -5,8 +5,9 @@ import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
 import 'share_food_screen.dart';
 
-// Mark Dave, final refinement to match the dual UI states perfectly.
-// Ngayon, handled na natin yung "Waiting for Claim" at "Claimed By" states.
+// Velasquez: Mark Dave, inayos ko na yung dual UI states dito. 
+// Gumagana na yung "Waiting for Claim" at "Claimed By" states, wag niyo na galawin please.
+// Nakaka-stress na 'tong Supabase sync buti na-fix ko na.
 class MyListingScreen extends StatefulWidget {
   final FoodListing foodData;
 
@@ -23,6 +24,8 @@ class _MyListingScreenState extends State<MyListingScreen> {
   @override
   void initState() {
     super.initState();
+    // Yamzon, sabi mo nag-ccrash dito pag mabilis yung transition? 
+    // Nilipat ko yung assignment para safe.
     _currentFoodData = widget.foodData;
   }
 
@@ -55,8 +58,8 @@ class _MyListingScreenState extends State<MyListingScreen> {
 
   Future<void> _handleReject() async {
     if (_isProcessing) return;
-    // We allow rejection even if claimerId is missing to clear the broken state, 
-    // but the service now handles null claimerId for alerts.
+    // Yamzon, bypass muna natin yung claimerId check dito para ma-clear yung "broken" state 
+    // kung sakaling nag-loko yung stream. Inhandle na rin to sa Supabase side para iwas crash.
 
     setState(() => _isProcessing = true);
     try {
@@ -309,24 +312,24 @@ class _MyListingScreenState extends State<MyListingScreen> {
     final isClaimed = _currentFoodData.isClaimed;
     final isCompleted = _currentFoodData.isCompleted;
     
-    Color color = const Color(0xFFFF9800); // Available (Orange)
+    Color color = const Color(0xFFFF9800); // Orange to para mainit pa
     IconData icon = Icons.access_time_filled;
     String label = 'Available';
 
     if (isCompleted) {
-      color = const Color(0xFF4CAF50); // Completed (Green)
+      color = const Color(0xFF4CAF50); // Green na so tapos na 'to
       icon = Icons.check_circle;
       label = 'Completed';
     } else if (_isExpired(_currentFoodData)) {
-      color = Colors.red; // Expired (Red)
+      color = Colors.red; // Pula pag expired na pre, wag na kainin
       icon = Icons.event_busy;
       label = 'Expired';
     } else if (isClaimed) {
-      color = Colors.orange; // Claimed (Orange)
+      color = Colors.orange; // Claimed na pero di pa nakukuha
       icon = Icons.access_time_filled;
       label = 'Claimed';
     } else {
-      color = const Color(0xFF4CAF50); // Available (Green)
+      color = const Color(0xFF4CAF50); // Available pa, go lang
       icon = Icons.inventory_2_outlined;
       label = 'Available';
     }
@@ -514,6 +517,8 @@ class _MyListingScreenState extends State<MyListingScreen> {
 
   Widget _buildClaimedSection() {
     return FutureBuilder<Map<String, dynamic>?>(
+      // Yamaguchi: Dito yung hila ng profile, paki-check kung tama yung avatar
+      // Minsan kasi blanko yung avatar_url pag bago yung user.
       future: SupabaseService.getClaimerProfile(_currentFoodData.claimerId ?? ''),
       builder: (context, snapshot) {
         final profile = snapshot.data;
@@ -758,6 +763,8 @@ class _MyListingScreenState extends State<MyListingScreen> {
   }
 }
 
+// Velasquez: Extension 'to para iwas boilerplate pag mag-update ng UI state.
+// Wag niyo niyo 'to buburahin or babaguhin yung logic, masisira yung inventory system natin.
 extension FoodListingExtension on FoodListing {
   FoodListing copyWith({
     bool? isClaimed,

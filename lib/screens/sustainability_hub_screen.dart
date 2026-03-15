@@ -6,8 +6,8 @@ import '../models/food_listing.dart';
 import 'my_listing_screen.dart'; 
 import 'food_item_screen.dart'; // Added for Claimed Item Navigation
 
-// Mark Dave, Welcome sa Sustainability Hub natin! 
-// Dito mo makikita yung impact mo sa community at yung sarili mong listings.
+// Mark Dave, Welcome sa Sustainability Hub natin pre! 
+// Dito natin ipapakita yung impact natin sa environment. Wag mong guluhin yung layout.
 class SustainabilityHubScreen extends StatefulWidget {
   const SustainabilityHubScreen({super.key});
 
@@ -163,7 +163,7 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                     child: CircleAvatar(
                       radius: 35,
                       backgroundColor: const Color(0xFFE8F5E9),
-                      // Mark Dave, ito yung dynamic avatar url natin!
+                      // Mark Dave: Ito yung dynamic avatar url natin pre.
                       // Ginamit natin yung PNG version para diretsong load sa NetworkImage.
                       backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
                       child: avatarUrl == null 

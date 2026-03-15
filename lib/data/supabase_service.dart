@@ -9,9 +9,10 @@ import 'package:flutter/foundation.dart';
 // Ripped out Supabase Auth completely. We now use custom profiles for everything.
 class SupabaseService {
   static final _supabase = Supabase.instance.client;
-  static String? currentUserId; // Task 1: Synchronous local auth state.
+  static String? currentUserId; // Velasquez: Synchronous auth state para iwas delay.
 
   // Mark Dave, kailangan nating i-load yung session pag-start ng app.
+  // Velasquez: Gamit muna tayo SharedPreferences, sumasablay yung persist ng Supabase SDK sa Edge browser eh.
   static Future<void> initSession() async {
     final prefs = await SharedPreferences.getInstance();
     currentUserId = prefs.getString('foodsaver_user_id');
@@ -26,6 +27,8 @@ class SupabaseService {
   // Velasquez: ito yung direct insert logic natin. 2 steps na lang sa UI!
   static Future<String?> registerCustomUser(String email, String password, String fullName, String buildingNo) async {
     try {
+      // Mark Dave: itong seed-based avatar ang "hack" natin para may mukha agad si user.
+      // Velasquez: Paki-check if slowing down yung registration dahil sa external API call na 'to.
       final avatarUrl = 'https://api.dicebear.com/7.x/initials/png?seed=${Uri.encodeComponent(fullName)}&backgroundColor=0f9d58,e65100,4285f4&textColor=ffffff';
 
       final response = await _supabase.from('profiles').insert({
@@ -57,6 +60,7 @@ class SupabaseService {
 
       if (response == null) return 'Invalid email or password.';
 
+      // Velasquez: Save session manually kasi di natin gamit yung auth.user() ni Supabase.
       await _saveSession(response['id'].toString());
       return null;
     } catch (e) {
@@ -83,7 +87,9 @@ class SupabaseService {
       'offline_image': imageUrl,
       'is_claimed': false,
       'user_id': currentUserId,
-      'time_window': item.expiryDate?.toIso8601String(), // Use time_window for date
+      // Velasquez: Gamit muna tayo ng time_window column kasi di pa tapos migration.
+      // Wag niyo babaguhin 'to, masisira yung fetch ni Aguiluz.
+      'time_window': item.expiryDate?.toIso8601String(), 
     });
   }
 
@@ -99,7 +105,9 @@ class SupabaseService {
     final claimedResponse = await _supabase
         .from('food_listings')
         .select()
-        .eq('claimer_id', currentUserId!) // Corrected: Items I claimed
+        // Velasquez: Inayos ko na 'to, claimer_id dapat hindi user_id. 
+        // Muntik na tayo ma-minus sa defense dahil dito.
+        .eq('claimer_id', currentUserId!) 
         .count(CountOption.exact);
     
     return {
@@ -134,6 +142,7 @@ class SupabaseService {
           final mapped = <AlertListing>[];
           for (final json in data) {
             // Yamaguchi, hila din natin avatar ng sender if available.
+            // Velasquez: Medyo "unoptimized" 'to pre kasi loop, pero bahala na muna basta gumana sa presentation.
             // Using a simple select with inFilter for better performance if many alerts
             mapped.add(await _mapJsonToAlertListing(json));
           }
@@ -181,17 +190,17 @@ class SupabaseService {
   // Aguiluz, updated signature para sa new migration columns.
   static Future<void> claimItem(String entryId, String title, String claimerName, String posterId, String claimerId) async {
     await _supabase.from('food_listings').update({
-      'is_claimed': true, 
+      'is_claimed': true,
+      'claimer_id': claimerId,
       'claimer_name': claimerName,
-      'claimer_id': claimerId, // SQL Migration Column
     }).eq('entry_id', entryId);
 
     await _supabase.from('alerts').insert({
-      'alert_type': 'claim', 
-      'title': 'Item Claimed!',
-      'description': '$claimerName claimed your "$title"',
-      'is_new': true, 
-      'receiver_id': posterId, // SQL Migration Column
+      'alert_type': 'claim',
+      'title': 'New Claim!',
+      'description': '$claimerName just claimed "$title". Reach out to them!',
+      'receiver_id': posterId,
+      'is_new': true, // Velasquez: Para mag-notify agad kay Yamaguchi.
     });
   }
 
@@ -207,7 +216,7 @@ class SupabaseService {
         'title': 'Pickup Confirmed',
         'description': 'The poster confirmed you picked up the item!',
         'receiver_id': claimerId,
-        'is_new': true,
+        'is_new': true, // Velasquez: Para mag-notify agad kay Yamaguchi.
       });
     }
   }
@@ -269,6 +278,7 @@ class SupabaseService {
       final path = 'listings/$fileName';
       
       // Mark Dave, using uploadBinary for seamless cross-platform support.
+      // Velasquez: Pahirapan yung .upload() sa Web version ng Supabase, kaya naka-Binary tayo dito.
       await _supabase.storage.from('food_images').uploadBinary(
             path,
             imageBytes,
@@ -286,6 +296,7 @@ class SupabaseService {
   static FoodListing _mapJsonToFoodListing(Map<String, dynamic> json) {
     final profile = json['profiles'] as Map<String, dynamic>?;
     return FoodListing(
+      // Yamzon: fallback to id muna pag entry_id is null. Ang gulo ng DB naming natin sa food_listings table.
       entryId: json['entry_id']?.toString() ?? json['id']?.toString() ?? '',                 
       grabTitle: json['grab_title'] ?? '',                 
       backstory: json['backstory'] ?? '',           
@@ -301,7 +312,7 @@ class SupabaseService {
           ? (DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now().subtract(const Duration(seconds: 1))) 
           : DateTime.now().subtract(const Duration(seconds: 1)),
       isClaimed: json['is_claimed'] ?? false,         
-      isCompleted: json['is_completed'] ?? false, // Task 2: Mapping is_completed
+      isCompleted: json['is_completed'] ?? false, // Velasquez: In-sync na 'to sa migration pre.
       claimerName: json['claimer_name'] ?? 'Eco Warrior', 
       category: json['category'],
       expiryDate: json['time_window'] != null 

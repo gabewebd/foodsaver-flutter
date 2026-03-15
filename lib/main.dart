@@ -9,7 +9,7 @@ import 'screens/alerts_screen.dart';
 import 'screens/sustainability_hub_screen.dart';
 import 'data/supabase_service.dart';
 
-// project-wide colors
+// Velasquez: Kulay ng FoodSaver, wag niyo na palitan pre.
 const brandGreen = Color(0xFF0F9D58); 
 const accentOrange = Color(0xFFF57C00);
 const canvasOffWhite = Color(0xFFF5F7F5);
@@ -25,7 +25,8 @@ Future<void> main() async {
       anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
     );
     
-    // Velasquez: Initialize our custom local session management.
+    // Velasquez: Initialize natin 'tong session management. 
+    // Yamzon, paki-test 'to kung nag-se-save talaga yung user_id.
     await SupabaseService.initSession();
     
     runApp(const FoodSaverCoreApp());
@@ -82,7 +83,7 @@ class MainShellCoordinator extends StatelessWidget {
     ShareFoodScreen(),       
     AlertsScreen(),          
     SustainabilityHubScreen()
-  ];
+  ]; // Velasquez: Dito niyo lang idagdag pag may bagong screen, wag na sa main code.
 
   @override
   Widget build(BuildContext context) {

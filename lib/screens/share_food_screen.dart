@@ -40,6 +40,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
   }
 
   Future<void> _selectExpiryDate() async {
+    // Aguiluz: Paki-check if maayos yung date picker, baka malito yung user pre.
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedExpiryDate ?? DateTime.now().add(const Duration(days: 3)),
@@ -64,6 +65,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
   }
 
   Future<void> _pickImage(bool shouldCrop) async {
+    // Aguiluz: Pick image logic natin pre. Matic na quality 80 para di mabigat sa DB.
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     
     if (pickedFile != null) {
@@ -141,6 +143,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
   }
 
   Future<void> _handleSubmit() async {
+    // Velasquez: Form check muna tayo pre bago i-hit yung Supabase.
     if (!_formKey.currentState!.validate()) return;
     if (_imageBytes == null && widget.existingItem == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -150,11 +153,12 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
     }
 
     setState(() => _isUploading = true);
+    // Velasquez: Yamzon, paki-check if mabilis yung loading state pag mabagal internet.
     try {
       String? imageUrl = widget.existingItem?.offlineImage;
       if (_imageBytes != null) {
         final fileName = 'listing_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        // Velasquez, gamit na natin yung updated service method natin dito!
+        // Velasquez: Gamit na natin yung bagong uploadImage method pre, wag na yung luma.
         imageUrl = await SupabaseService.uploadImage(fileName, _imageBytes!);
       }
 
@@ -408,6 +412,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
           maxLines: 3,
         ),
         const SizedBox(height: 20),
+        // Aguiluz: Date selection para sa expiry. Mark Dave, paki-check design nito.
         GestureDetector(
           onTap: _selectExpiryDate,
           child: Container(

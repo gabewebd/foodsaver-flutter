@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/supabase_service.dart';
 
-// Velasquez, updated ito! 2 steps na lang tayo para mabilis ang onboarding.
-// Tinanggal na natin yung Avatar Picker dahil automatic na DiceBear.
+// Velasquez: Updated ito! 2 steps na lang tayo para di tamarin yung user. 
+// Tinanggal na natin yung Avatar Picker dahil automatic na DiceBear, iwas buggy uploads.
 class AuthStepperScreen extends StatefulWidget {
   final VoidCallback onLoginInstead;
   const AuthStepperScreen({super.key, required this.onLoginInstead});
@@ -60,7 +60,8 @@ class _AuthStepperScreenState extends State<AuthStepperScreen> {
 
     setState(() => _isLoading = true);
 
-    // Phase 2: Direct database insert via our new custom service method.
+    // Velasquez: Direct database insert na 'to pre, wag niyo na balikan yung logic.
+    // Yamzon, paki-double check if may redundant entries sa profiles table.
     final error = await SupabaseService.registerCustomUser(
       email,
       password,

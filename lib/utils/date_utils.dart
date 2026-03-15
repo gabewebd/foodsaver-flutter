@@ -14,11 +14,12 @@ class TimeUtils {
   static String getTimeAgo(DateTime? dateTime) {
     if (dateTime == null) return 'Unknown time';
     
-    // Ensure we are comparing UTC to UTC or Local to Local
+    // Velasquez: Ensure we are comparing UTC to UTC or Local to Local.
+    // Hirap nito pre, baka biglang mag-expire kahit hindi pa.
     final now = DateTime.now();
     final difference = now.difference(dateTime.toLocal());
     
-    if (difference.isNegative) return 'Just now'; // Handle clock skew
+    if (difference.isNegative) return 'Just now'; // Velasquez: Iwas crash pag negative discrepancy.
     if (difference.inDays >= 365) return '${(difference.inDays / 365).floor()}y ago';
     if (difference.inDays >= 30) return '${(difference.inDays / 30).floor()}mo ago';
     if (difference.inDays > 0) return '${difference.inDays}d ago';

@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'auth_stepper_screen.dart';
 import '../data/supabase_service.dart';
 
-// Velasquez Master screen para sa login at registration.
-// Dito tayo nag-swiswitch depende kung login o signup ang gusto ni user.
+// Velasquez: Master screen para sa login at registration. 
+// Aguiluz, Yamaguchi, dito niyo i-point yung navigation niyo if nag-logout.
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
@@ -19,7 +19,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  // Velasquez Login process natin. Matic to sa AuthGate pag successful.
+  // Velasquez: Login process natin. Matic to sa AuthGate pag successful.
+  // Yamzon, paki-check if lumalabas yung loading spinner, minsan stuck eh.
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -50,7 +51,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Velasquez Kung registration, ipakita yung custom stepper mo.
+    // Velasquez: Kung registration, hila natin yung custom stepper mo Mark Dave.
     if (!_isLogin) {
       return AuthStepperScreen(
         onLoginInstead: () => setState(() => _isLogin = true),

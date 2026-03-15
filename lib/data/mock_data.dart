@@ -10,14 +10,11 @@ class FoodListing {
   final String dropDistance;
   final String meetupSpot;
   final String posterAlias;
-  final String? posterAvatarUrl; 
+  final String? posterAvatarUrl; // Velasquez: Optional 'to para iwas null pointer.
   final String? userId; 
   final String? claimerId; 
   final String offlineImage;
-  final Uint8List? imageBytes; 
-  final DateTime createdAt; 
-  final bool isClaimed;
-  final bool isCompleted; // New
+  final Uint8List? imageBytes; // Velasquez: Preview muna pre bago i-upload.
   final String? claimerName;
   final String? category; 
   final DateTime? expiryDate; 
@@ -92,7 +89,7 @@ class FoodListing {
   }
 }
 
-// Yamaguchi, Blueprint para sa mga alerts/notifications.
+// Yamaguchi pre, dito mo tignan yung data ng alerts mo.
 enum AlertType { claim, nearby, follower, expiry, success, warning }
 class AlertListing {
   final String alertId;

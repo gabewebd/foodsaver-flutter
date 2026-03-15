@@ -6,8 +6,9 @@ import '../utils/date_utils.dart'; // Unified Time Utils
 import 'food_item_screen.dart';
 import 'my_listing_screen.dart'; 
 
-// Aguiluz, Welcome sa updated main feed natin! 
-// Tinanggal na natin yung fake filters, real-time time-based filtering na tayo.
+// Aguiluz, Welcome sa updated main feed natin pre! 
+// Tinanggal na natin yung fake filters, real-time na yung time-based filtering natin.
+// Velasquez: Paki-check if mabilis mag-load yung stream, baka mag-lag sa dami ng listings.
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
 
@@ -26,8 +27,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     {'name': 'Flexible', 'icon': Icons.calendar_today_outlined}, // >= 4 days or none
   ];
 
-  // Aguiluz, Ito yung logic natin para sa "Urgent" badge.
-  // Task 4: Bulletproof the "Urgent" math with try-catch
+  // Aguiluz, Ito yung logic natin para sa "Urgent" badge. 
+  // Paki-try catch to pre, baka biglang mag-crash pag null yung date.
   bool _isUrgent(FoodListing item) {
     try {
       final expiry = DateTime.tryParse(item.timeWindow);
@@ -256,8 +257,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                       duration: const Duration(milliseconds: 250),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        // Aguiluz, updated colors based sa UI ref. 
-                        // Active = White pill, Green text. Inactive = Lighter Green pill, White text.
+                        // Aguiluz: Updated colors based sa UI reference ni Mark Dave. 
+                        // Active = White pill, Green text. Inactive = Translucent White.
                         color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(25),
                       ),
