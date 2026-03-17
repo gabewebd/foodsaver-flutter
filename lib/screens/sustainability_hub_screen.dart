@@ -5,6 +5,10 @@ import '../utils/date_utils.dart';
 import '../models/food_listing.dart';
 import 'my_listing_screen.dart'; 
 import 'food_item_screen.dart'; // Added for Claimed Item Navigation
+import '../services/food_keeper_service.dart';
+import '../models/food_keeper.dart';
+import '../services/usda_recall_service.dart';
+import '../models/usda_recall.dart';
 
 // Mark Dave, Welcome sa Sustainability Hub natin pre! 
 // Dito natin ipapakita yung impact natin sa environment. Wag mong guluhin yung layout.
@@ -48,7 +52,9 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                     _buildClaimedItemsSection(context), // New Section
                     const SizedBox(height: 24),
                     _buildDailyTipSection(),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 25),
+                    _buildRecallAlertsSection(),
+                    const SizedBox(height: 25),
                   ],
                 ),
               ),
@@ -164,6 +170,7 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                       radius: 35,
                       backgroundColor: const Color(0xFFE8F5E9),
                       // Mark Dave: Ito yung dynamic avatar url natin pre.
+                      // Aguiluz: Ito naman yung bagong section para sa Food Recalls.
                       // Ginamit natin yung PNG version para diretsong load sa NetworkImage.
                       backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
                       child: avatarUrl == null 
@@ -574,6 +581,110 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
     );
   }
 
+  Widget _buildRecallAlertsSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFD32F2F),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.warning_amber_rounded,
+                    color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Active Food Recalls',
+                style: GoogleFonts.nunito(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFFD32F2F),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<UsdaRecall>>(
+            future: UsdaRecallService.fetchRecentRecalls(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                return Text(
+                  'No recent recall alerts from USDA FSIS.',
+                  style: GoogleFonts.nunito(color: Colors.grey),
+                );
+              }
+
+              // Aguiluz: Ito yung initial trigger natin para sa Recalls.
+              // Isa lang yung ipakita natin para hindi siksikan sa screen.
+              final latestRecall = snapshot.data!.first;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    latestRecall.title,
+                    style: GoogleFonts.nunito(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF2D3142),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Risk: ${latestRecall.riskLevel}',
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.red[700],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    latestRecall.cleanSummary,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDailyTipSection() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -599,12 +710,12 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                   color: Color(0xFF4285F4),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.priority_high,
+                child: const Icon(Icons.lightbulb_outline,
                     color: Colors.white, size: 16),
               ),
               const SizedBox(width: 12),
               Text(
-                'Daily Tip',
+                'USDA FoodKeeper Tip',
                 style: GoogleFonts.nunito(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -614,22 +725,94 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE3F2FD),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'For stray cats, avoid onions, garlic, and seasoned, fatty, or chocolate.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.nunito(
-                fontSize: 14,
-                color: const Color(0xFF1565C0),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          // Aguiluz: Dito na papasok yung Milestone 3! 
+          // Hihintayin natin yung response mula sa USDA API.
+          FutureBuilder<FoodKeeperProduct>(
+            future: FoodKeeperService.fetchRandomTip(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                // Loading State pre, para alam ni user na may ginagawa yung app.
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                // Error State: Pag walang internet o may problema sa server.
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red, size: 30),
+                      const SizedBox(height: 8),
+                      Text(
+                        snapshot.error.toString().replaceAll('Exception: ', ''),
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.nunito(
+                          fontSize: 14,
+                          color: Colors.red[700],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton(
+                        onPressed: () => setState(() {}), // Refresh logic
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[100],
+                        ),
+                        child: const Text('Retry', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (snapshot.hasData) {
+                // Success State: Yehey! May data na tayo.
+                final tip = snapshot.data!;
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Did you know about ${tip.productName}?',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.nunito(
+                          fontSize: 16,
+                          color: const Color(0xFF1565C0),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tip: ${tip.shelfLifeDescription}',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.nunito(
+                          fontSize: 14,
+                          color: const Color(0xFF1565C0),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return const SizedBox();
+            },
           ),
           const SizedBox(height: 16),
           Container(
@@ -645,7 +828,7 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                 const Icon(Icons.trending_up, color: Color(0xFF3949AB), size: 18),
                 const SizedBox(width: 8),
                 Text(
-                  'Making a difference!',
+                  'Live Data from USDA',
                   style: GoogleFonts.nunito(
                     color: const Color(0xFF3949AB),
                     fontWeight: FontWeight.w800,

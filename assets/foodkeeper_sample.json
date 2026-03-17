@@ -1,0 +1,60 @@
+{
+  "product_data": [
+    {
+      "id": "1",
+      "name": "Butter",
+      "category_name_display_only": "Dairy Products & Eggs",
+      "pantry_tips": "May be left at room temperature for 1 - 2 days.",
+      "from_date_of_purchase_refrigerate_output_display_only": "1 - 2 Months",
+      "from_date_of_purchase_freeze_output_display_only": "6 - 9 Months"
+    },
+    {
+      "id": "2",
+      "name": "Apples",
+      "category_name_display_only": "Fresh Fruits",
+      "pantry_tips": "Wash before eating.",
+      "from_date_of_purchase_refrigerate_output_display_only": "4 - 8 Weeks",
+      "from_date_of_purchase_freeze_output_display_only": "8 - 12 Months"
+    },
+    {
+      "id": "3",
+      "name": "Milk",
+      "category_name_display_only": "Dairy Products & Eggs",
+      "pantry_tips": null,
+      "from_date_of_purchase_refrigerate_output_display_only": "1 Week",
+      "from_date_of_purchase_freeze_output_display_only": "3 Months"
+    },
+    {
+      "id": "4",
+      "name": "Eggs",
+      "category_name_display_only": "Dairy Products & Eggs",
+      "pantry_tips": null,
+      "from_date_of_purchase_refrigerate_output_display_only": "3 - 5 Weeks",
+      "from_date_of_purchase_freeze_output_display_only": "Do not freeze in shell."
+    },
+    {
+      "id": "5",
+      "name": "Beef (Ground)",
+      "category_name_display_only": "Meat",
+      "pantry_tips": null,
+      "from_date_of_purchase_refrigerate_output_display_only": "1 - 2 Days",
+      "from_date_of_purchase_freeze_output_display_only": "3 - 4 Months"
+    },
+    {
+      "id": "6",
+      "name": "Fish (Lean)",
+      "category_name_display_only": "Seafood",
+      "pantry_tips": null,
+      "from_date_of_purchase_refrigerate_output_display_only": "1 - 2 Days",
+      "from_date_of_purchase_freeze_output_display_only": "6 Months"
+    },
+    {
+      "id": "10",
+      "name": "Bananas",
+      "category_name_display_only": "Fresh Fruits",
+      "pantry_tips": "May be refrigerated when ripe.",
+      "from_date_of_purchase_refrigerate_output_display_only": "2 - 3 Days",
+      "from_date_of_purchase_freeze_output_display_only": "2 - 3 Months"
+    }
+  ]
+}
