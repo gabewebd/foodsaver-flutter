@@ -772,7 +772,48 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+              if (snapshot.hasError) {
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.error_outline, color: Color(0xFFD32F2F), size: 30),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Recall API Error: ${snapshot.error.toString().replaceAll('Exception: ', '')}',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.nunito(
+                          fontSize: 13,
+                          color: const Color(0xFFD32F2F),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => setState(() {}),
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[100],
+                          foregroundColor: const Color(0xFFD32F2F),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return Text(
                   'No recent recall alerts from USDA FSIS.',
                   style: GoogleFonts.nunito(color: Colors.grey),

@@ -55,10 +55,12 @@ class FoodKeeperService {
         throw Exception('Failed to load from API');
       }
     } catch (e) {
-      // Velasquez, catch natin dito para hindi mag-crash yung app pag walang net.
-      // Dito papasok yung ating "Fail-Safe" local data.
-      print('API Error (CORS/Network), switching to local backup: $e');
-      return _fetchFromLocalAsset();
+      // Mark Dave: Dinisable natin yung fallback para makita mo yung Error State sa UI.
+      // Balik mo 'to pagkatapos ng testing para may backup uli.
+      print('FoodKeeper API Error (Simulated): $e');
+      rethrow; // Ipasa ang error sa UI
+      
+      // return _fetchFromLocalAsset();
     }
   }
 
