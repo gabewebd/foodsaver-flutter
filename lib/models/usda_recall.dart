@@ -26,9 +26,32 @@ class UsdaRecall {
     );
   }
 
-  // Helper para linisin yung HTML tags sa summary (kung meron man)
+  // Helper para linisin yung HTML tags at redundant headers sa summary
   String get cleanSummary {
-    // Basic regex para tanggalin yung <p>, <strong>, etc. na nakita natin sa PDF sample.
-    return summary.replaceAll(RegExp(r'<[^>]*>|&nbsp;'), ' ').trim();
+    // 1. Tanggalin muna yung HTML tags (<p>, etc.)
+    String text = summary.replaceAll(RegExp(r'<[^>]*>|&nbsp;'), ' ').trim();
+    
+    // 2. Tanggalin yung common news location/date headers (e.g., "WASHINGTON, March 13, 2026 – ")
+    // Naghahanap tayo ng pattern na nagtatapos sa " – " or " -- "
+    final headerDashIndex = text.indexOf(' – ');
+    if (headerDashIndex != -1 && headerDashIndex < 100) {
+      text = text.substring(headerDashIndex + 3).trim();
+    }
+    
+    return text;
+  }
+
+  // Getter para sa mas maikling title na hindi paulit-ulit yung "FSIS Issues..."
+  String get shortTitle {
+    String t = title;
+    // Tanggalin yung common prefixes para diretso sa point
+    t = t.replaceFirst(RegExp(r'FSIS Issues (a )?Public Health Alert For ', caseSensitive: false), '');
+    t = t.replaceFirst(RegExp(r'FSIS Issues (a )?Recall For ', caseSensitive: false), '');
+    
+    // Capitalize first letter kung sakali
+    if (t.isNotEmpty) {
+      t = t[0].toUpperCase() + t.substring(1);
+    }
+    return t;
   }
 }
