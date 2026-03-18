@@ -14,8 +14,6 @@ class FoodKeeperService {
 
   // Aguiluz: Fetch natin lahat tapos kukuha lang tayo ng isa randomly.
   static Future<FoodKeeperProduct> fetchRandomTip() async {
-    // Velasquez: Added 45-second delay to visualize Loading Indicator pre.
-    await Future.delayed(const Duration(seconds: 45));
     try {
       final response = await http.get(Uri.parse(_apiUrl));
       
@@ -57,12 +55,10 @@ class FoodKeeperService {
         throw Exception('Failed to load from API');
       }
     } catch (e) {
-      // Mark Dave: Dinisable natin yung fallback para makita mo yung Error State sa UI.
-      // Balik mo 'to pagkatapos ng testing para may backup uli.
-      print('FoodKeeper API Error (Simulated): $e');
-      rethrow; // Ipasa ang error sa UI
-      
-      // return _fetchFromLocalAsset();
+      // Velasquez, catch natin dito para hindi mag-crash yung app pag walang net.
+      // Dito papasok yung ating "Fail-Safe" local data.
+      print('API Error (CORS/Network), switching to local backup: $e');
+      return _fetchFromLocalAsset();
     }
   }
 
