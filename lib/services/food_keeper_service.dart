@@ -14,6 +14,8 @@ class FoodKeeperService {
 
   // Aguiluz: Fetch natin lahat tapos kukuha lang tayo ng isa randomly.
   static Future<FoodKeeperProduct> fetchRandomTip() async {
+    // Velasquez: Added 5-second delay to visualize Loading Indicator pre.
+    await Future.delayed(const Duration(seconds: 3));
     try {
       final response = await http.get(Uri.parse(_apiUrl));
       
