@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/supabase_service.dart';
+import '../utils/error_utils.dart';
 
 // Velasquez: Updated ito! 2 steps na lang tayo para di tamarin yung user. 
 // Tinanggal na natin yung Avatar Picker dahil automatic na DiceBear, iwas buggy uploads.
@@ -80,7 +81,11 @@ class _AuthStepperScreenState extends State<AuthStepperScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: Colors.red, duration: const Duration(seconds: 5)),
+          SnackBar(
+            content: Text(ErrorUtils.getFriendlyErrorMessage(error)), 
+            backgroundColor: Colors.red, 
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }

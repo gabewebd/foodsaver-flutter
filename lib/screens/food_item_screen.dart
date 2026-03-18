@@ -4,6 +4,7 @@ import '../models/food_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
 import 'home_feed_screen.dart';
+import '../utils/error_utils.dart';
 
 // Yamzon: Welcome sa detail page ng mga pagkain! 
 // Dito tinitignan ni user lahat ng details bago i-claim. Paki-test yung claim button!
@@ -376,7 +377,10 @@ class _FoodItemScreenState extends State<FoodItemScreen> {
                   );
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error claiming: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text(ErrorUtils.getFriendlyErrorMessage(e)), 
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               },

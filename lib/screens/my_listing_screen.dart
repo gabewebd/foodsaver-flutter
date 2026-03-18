@@ -4,6 +4,7 @@ import '../models/food_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
 import 'share_food_screen.dart';
+import '../utils/error_utils.dart';
 
 // Velasquez: Mark Dave, inayos ko na yung dual UI states dito. 
 // Gumagana na yung "Waiting for Claim" at "Claimed By" states, wag niyo na galawin please.
@@ -49,7 +50,10 @@ class _MyListingScreenState extends State<MyListingScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(ErrorUtils.getFriendlyErrorMessage(e)), 
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -79,7 +83,10 @@ class _MyListingScreenState extends State<MyListingScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(ErrorUtils.getFriendlyErrorMessage(e)), 
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -521,6 +528,15 @@ class _MyListingScreenState extends State<MyListingScreen> {
       // Minsan kasi blanko yung avatar_url pag bago yung user.
       future: SupabaseService.getClaimerProfile(_currentFoodData.claimerId ?? ''),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+              style: GoogleFonts.nunito(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          );
+        }
+        
         final profile = snapshot.data;
         final claimerName = profile?['full_name'] ?? _currentFoodData.claimerName ?? 'Eco Warrior';
 

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/food_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
+import '../utils/error_utils.dart';
 
 class ShareFoodScreen extends StatefulWidget {
   final FoodListing? existingItem;
@@ -212,7 +213,10 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(ErrorUtils.getFriendlyErrorMessage(e)), 
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isUploading = false);

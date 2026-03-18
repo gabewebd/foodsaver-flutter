@@ -10,6 +10,8 @@ class UsdaRecallService {
   static const String _localRecallFallback = 'assets/recall_sample.json';
 
   static Future<List<UsdaRecall>> fetchRecentRecalls() async {
+    // Velasquez: Added 45-second delay to visualize Loading Indicator pre.
+    await Future.delayed(const Duration(seconds: 45));
     try {
       // Step 1: Subukan nating humugot sa remote API.
       // Baka i-block din ito ng CORS sa browser, kaya may fallback din tayo.

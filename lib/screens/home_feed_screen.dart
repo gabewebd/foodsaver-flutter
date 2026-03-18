@@ -5,6 +5,8 @@ import '../data/supabase_service.dart';
 import '../utils/date_utils.dart'; // Unified Time Utils
 import 'food_item_screen.dart';
 import 'my_listing_screen.dart'; 
+import '../widgets/witty_offline_banner.dart';
+import '../utils/error_utils.dart';
 
 // Aguiluz, Welcome sa updated main feed natin pre! 
 // Tinanggal na natin yung fake filters, real-time na yung time-based filtering natin.
@@ -134,10 +136,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
-                      child: Text(
-                        'Stream Error: ${snapshot.error}', 
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
+                      child: WittyOfflineBanner(
+                        onRetry: () => setState(() {}),
+                        message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
                       ),
                     ),
                   );

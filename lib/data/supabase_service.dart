@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/food_listing.dart';
 import '../models/alert_listing.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/error_utils.dart';
 
 // Velasquez: ito na yung ating final engine!
 // Ripped out Supabase Auth completely. We now use custom profiles for everything.
@@ -45,7 +46,7 @@ class SupabaseService {
       await _saveSession(newUser['id'].toString());
       return null;
     } catch (e) {
-      return 'Registration error: $e';
+      return ErrorUtils.getFriendlyErrorMessage(e);
     }
   }
 
@@ -64,7 +65,7 @@ class SupabaseService {
       await _saveSession(response['id'].toString());
       return null;
     } catch (e) {
-      return 'Login error: $e';
+      return ErrorUtils.getFriendlyErrorMessage(e);
     }
   }
 

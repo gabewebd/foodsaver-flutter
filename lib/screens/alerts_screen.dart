@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/alert_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
+import '../widgets/witty_offline_banner.dart';
+import '../utils/error_utils.dart';
 
 // Yamaguchi, Dito mo na-monitor lahat ng ganap sa app. 
 // Stay updated pre para mabilis yung response sa mga claims!
@@ -17,6 +19,25 @@ class AlertsScreen extends StatelessWidget {
         // Yamaguchi: Real-time stream to pre, no need to refresh. Matic lilitaw yung bago.
         stream: SupabaseService.getAlertsStream(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Column(
+              children: [
+                _buildHeader(context, 0),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: WittyOfflineBanner(
+                        onRetry: () => (context as Element).markNeedsBuild(),
+                        message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }

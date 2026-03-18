@@ -9,6 +9,8 @@ import '../services/food_keeper_service.dart';
 import '../models/food_keeper.dart';
 import '../services/usda_recall_service.dart';
 import '../models/usda_recall.dart';
+import '../widgets/witty_offline_banner.dart';
+import '../utils/error_utils.dart';
 
 // Mark Dave, Welcome sa Sustainability Hub natin pre! 
 // Dito natin ipapakita yung impact natin sa environment. Wag mong guluhin yung layout.
@@ -34,22 +36,43 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   children: [
-                    const SizedBox(height: 20),
-                    _buildProfileCard(),
-                    const SizedBox(height: 20),
-                    // Mark Dave, Hinihila natin yung stats mo mula sa database.
-                    FutureBuilder<Map<String, int>>(
-                      future: SupabaseService.getUserMetrics(),
+                    // Velasquez: Centralized Database Connectivity Check
+                    // If the food stream fails, the database is likely offline.
+                    // We hide all DB-driven sections and show the Offline Banner instead.
+                    StreamBuilder<List<FoodListing>>(
+                      stream: SupabaseService.getFoodStream(),
                       builder: (context, snapshot) {
-                        final shared = snapshot.data?['shared'] ?? 0;
-                        final claimed = snapshot.data?['claimed'] ?? 0;
-                        return _buildStatsRow(shared.toString(), claimed.toString());
+                        if (snapshot.hasError) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 20, bottom: 40),
+                            child: WittyOfflineBanner(
+                              onRetry: () => setState(() {}),
+                              message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            _buildProfileCard(),
+                            const SizedBox(height: 20),
+                            FutureBuilder<Map<String, int>>(
+                              future: SupabaseService.getUserMetrics(),
+                              builder: (context, snapshot) {
+                                final shared = snapshot.data?['shared'] ?? 0;
+                                final claimed = snapshot.data?['claimed'] ?? 0;
+                                return _buildStatsRow(shared.toString(), claimed.toString());
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                            _buildListingsSection(context),
+                            const SizedBox(height: 24),
+                            _buildClaimedItemsSection(context),
+                          ],
+                        );
                       },
                     ),
-                    const SizedBox(height: 24),
-                    _buildListingsSection(context),
-                    const SizedBox(height: 24),
-                    _buildClaimedItemsSection(context), // New Section
                     const SizedBox(height: 24),
                     _buildDailyTipSection(),
                     const SizedBox(height: 25),
@@ -134,8 +157,14 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
       future: SupabaseService.getCurrentUserProfile(),
       builder: (context, snapshot) {
         // Mark Dave, habang naglo-load, pakitaan muna natin ng loading state.
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(color: Colors.red[700], fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          );
         }
 
         final profileData = snapshot.data;
@@ -352,16 +381,10 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
           StreamBuilder<List<FoodListing>>(
             stream: SupabaseService.getFoodStream(),
             builder: (context, snapshot) {
-              // Task 3: Explicitly catch and display errors
               if (snapshot.hasError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Text(
-                      'Stream Error: ${snapshot.error}', 
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
+                return WittyOfflineBanner(
+                  onRetry: () => setState(() {}),
+                  message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
                 );
               }
 
@@ -443,6 +466,13 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
           StreamBuilder<List<FoodListing>>(
             stream: SupabaseService.getFoodStream(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return WittyOfflineBanner(
+                  onRetry: () => setState(() {}),
+                  message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+                );
+              }
+
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
