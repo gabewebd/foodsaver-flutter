@@ -24,18 +24,21 @@ class UsdaRecallService {
         throw Exception('Recall API unreachable');
       }
     } catch (e) {
-      // Step 2: Fallback! Pag nag-fail yung API (CORS issue), gamitin natin yung local snapshot.
-      // Velasquez, importante ito para hindi ma-stuck si user sa "Loading" or "Error".
-      print('Recall API Error (CORS/Network), switching to local backup: $e');
+      // Mark Dave: Dinisable natin yung fallback para makita mo yung Error State sa UI.
+      // Balik mo 'to pagkatapos ng testing para may backup uli.
+      print('Recall API Error (Simulated): $e');
+      rethrow; // Ipasa ang error sa UI
       
+      /* 
       try {
         final String localData = await rootBundle.loadString(_localRecallFallback);
         final List<dynamic> data = json.decode(localData);
         return data.map((json) => UsdaRecall.fromJson(json)).toList();
       } catch (assetError) {
         print('Recall Asset Error: $assetError');
-        return []; // Return empty list instead of crashing.
+        return [];
       }
+      */
     }
   }
 }
