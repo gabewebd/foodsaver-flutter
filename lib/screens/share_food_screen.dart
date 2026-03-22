@@ -45,11 +45,19 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
 
   Future<void> _selectExpiryDate() async {
     // Aguiluz: Paki-check if maayos yung date picker, baka malito yung user pre.
+    // Velasquez: Tomorrow dapat ang firstDate pre, March 23 onwards na lang (kung today is March 22).
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+    
+    // Safety check para sa initialDate: dapat hindi siya una sa tomorrow.
+    DateTime initialDate = _selectedExpiryDate ?? now.add(const Duration(days: 3));
+    if (initialDate.isBefore(tomorrow)) initialDate = tomorrow;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedExpiryDate ?? DateTime.now().add(const Duration(days: 3)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: initialDate,
+      firstDate: tomorrow,
+      lastDate: now.add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
