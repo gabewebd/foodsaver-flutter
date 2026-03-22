@@ -4,8 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/food_listing.dart';
 import '../models/alert_listing.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/error_utils.dart';
 
 // Velasquez: ito na yung ating final engine!
+// Aguiluz, Camus, Yamaguchi, Yamzon: Paki-check yung integration per module!
 // Ripped out Supabase Auth completely. We now use custom profiles for everything.
 class SupabaseService {
   static final _supabase = Supabase.instance.client;
@@ -45,7 +47,7 @@ class SupabaseService {
       await _saveSession(newUser['id'].toString());
       return null;
     } catch (e) {
-      return 'Registration error: $e';
+      return ErrorUtils.getFriendlyErrorMessage(e);
     }
   }
 
@@ -64,7 +66,7 @@ class SupabaseService {
       await _saveSession(response['id'].toString());
       return null;
     } catch (e) {
-      return 'Login error: $e';
+      return ErrorUtils.getFriendlyErrorMessage(e);
     }
   }
 
@@ -78,18 +80,25 @@ class SupabaseService {
   static Future<void> postListing(FoodListing item, String? imageUrl) async {
     if (currentUserId == null) throw Exception("User not logged in!");
 
+    // Velasquez: Hinila ko na yung totoong avatar at name sa profiles table bago mag-insert para hindi NULL sa food_listings pre.
+    final profile = await _supabase.from('profiles').select('full_name, avatar_url').eq('id', currentUserId!).single();
+    final posterAlias = profile['full_name'] ?? 'Anonymous';
+    final posterAvatarUrl = profile['avatar_url'];
+
     await _supabase.from('food_listings').insert({
       'grab_title': item.grabTitle,
       'backstory': item.backstory,
-      'time_window': item.timeWindow,
       'meetup_spot': item.meetupSpot,
-      'poster_alias': item.posterAlias,
+      'drop_distance': item.dropDistance,
+      'poster_alias': posterAlias,
+      'poster_avatar_url': posterAvatarUrl,
       'offline_image': imageUrl,
       'is_claimed': false,
+      'is_stray_feed': item.isStrayFeed,
       'user_id': currentUserId,
       // Velasquez: Gamit muna tayo ng time_window column kasi di pa tapos migration.
       // Wag niyo babaguhin 'to, masisira yung fetch ni Aguiluz.
-      'time_window': item.expiryDate?.toIso8601String(), 
+      'time_window': item.expiryDate?.toIso8601String() ?? item.timeWindow, 
     });
   }
 
@@ -150,7 +159,7 @@ class SupabaseService {
         });
   }
 
-  static Future<void> markAlertAsViewed(String alertId) async {
+  static Future<void> markAlertAsRead(String alertId) async {
     await _supabase.from('alerts').update({'is_new': false}).eq('alert_id', alertId);
   }
 
@@ -193,36 +202,51 @@ class SupabaseService {
       'is_claimed': true,
       'claimer_id': claimerId,
       'claimer_name': claimerName,
+      // 'claimed_at': DateTime.now().toIso8601String(), // Velasquez: Disabled muna para di mag-crash pre.
     }).eq('entry_id', entryId);
 
+    // Velasquez: Nilagyan ko na ng listing_id at has_actions: true para lumabas yung View Details button sa UI.
     await _supabase.from('alerts').insert({
       'alert_type': 'claim',
       'title': 'New Claim!',
       'description': '$claimerName just claimed "$title". Reach out to them!',
       'receiver_id': posterId,
-      'is_new': true, // Velasquez: Para mag-notify agad kay Yamaguchi.
+      'listing_id': entryId,
+      'is_new': true,
+      'has_actions': true,
     });
   }
 
   // Phase 1: Confirm Pickup Action
   static Future<void> confirmPickup(String entryId, String? claimerId) async {
+    // Velasquez: Kuha muna tayo ng title pre para dynamic yung alert.
+    final listing = await _supabase.from('food_listings').select('grab_title').eq('entry_id', entryId).single();
+    final title = listing['grab_title'] ?? 'your item';
+
     await _supabase.from('food_listings').update({
       'is_completed': true, 
     }).eq('entry_id', entryId);
 
     if (claimerId != null && claimerId.isNotEmpty) {
+      // Velasquez: Ginawa kong dynamic yung text para alam agad ng claimer kung anong pagkain yung na-confirm sa notifications nila.
       await _supabase.from('alerts').insert({
         'alert_type': 'success',
         'title': 'Pickup Confirmed',
-        'description': 'The poster confirmed you picked up the item!',
+        'description': 'The poster confirmed you picked up "$title".',
         'receiver_id': claimerId,
-        'is_new': true, // Velasquez: Para mag-notify agad kay Yamaguchi.
+        'listing_id': entryId,
+        'is_new': true,
+        'has_actions': true,
       });
     }
   }
 
   // Phase 1: Reject Pickup Action
   static Future<void> rejectPickup(String entryId, String? claimerId) async {
+    // Velasquez: Hila ulit tayo ng title para sa dynamic description.
+    final listing = await _supabase.from('food_listings').select('grab_title').eq('entry_id', entryId).single();
+    final title = listing['grab_title'] ?? 'your item';
+
     await _supabase.from('food_listings').update({
       'is_claimed': false,
       'claimer_id': null,
@@ -230,12 +254,15 @@ class SupabaseService {
     }).eq('entry_id', entryId);
 
     if (claimerId != null && claimerId.isNotEmpty) {
+      // Velasquez: Dynamic cancelled message pre, para solid ang UX.
       await _supabase.from('alerts').insert({
         'alert_type': 'warning',
         'title': 'Pickup Cancelled',
-        'description': 'The poster cancelled the pickup.',
+        'description': 'The poster cancelled the pickup for "$title".',
         'receiver_id': claimerId,
+        'listing_id': entryId,
         'is_new': true,
+        'has_actions': true,
       });
     }
   }
@@ -254,11 +281,13 @@ class SupabaseService {
   }
 
   static Future<void> updateListing(String id, FoodListing item, String? imageUrl) async {
+    // Velasquez: Dinagdag ko na yung is_stray_feed sa payload para isave na talaga ng Supabase yung toggle natin.
     await _supabase.from('food_listings').update({
       'grab_title': item.grabTitle,
       'backstory': item.backstory,
       'time_window': item.expiryDate?.toIso8601String() ?? item.timeWindow,
       'meetup_spot': item.meetupSpot,
+      'is_stray_feed': item.isStrayFeed,
       'offline_image': imageUrl ?? item.offlineImage,
     }).eq('entry_id', id);
   }
@@ -269,6 +298,71 @@ class SupabaseService {
 
   static Future<void> dismissAlert(String id) async {
     await _supabase.from('alerts').delete().eq('alert_id', id);
+  }
+
+  static Future<void> checkAndGenerateExpiryAlerts() async {
+    try {
+      final userId = currentUserId;
+      if (userId == null) return;
+
+      final now = DateTime.now();
+      final tomorrow = now.add(const Duration(hours: 24));
+
+      // Fetch active, unclaimed listings expiring within 24 hours
+      // Velasquez: Background checker to para mag-generate ng expiry alerts. Wag niyo gagawing loop para di tayo ma-rate limit sa Supabase.
+      final expiringItems = await _supabase
+          .from('food_listings')
+          .select()
+          .eq('user_id', userId)
+          .eq('is_completed', false)
+          .eq('is_claimed', false)
+          .gte('time_window', now.toIso8601String())
+          .lte('time_window', tomorrow.toIso8601String());
+
+      for (final item in expiringItems) {
+        final entryId = item['entry_id'].toString();
+        
+        // Check if alert already exists
+        final existingAlert = await _supabase
+            .from('alerts')
+            .select()
+            .eq('listing_id', entryId)
+            .eq('alert_type', 'expiring_soon')
+            .maybeSingle();
+
+        if (existingAlert == null) {
+          // Velasquez: Added has_actions true para pwede silang dumerecho sa details para i-extend or i-edit.
+          // Velasquez: Pati sa Expiry alerts, kailangan ng listing_id para ma-view nila kung anong item yung mapapanis na.
+          await _supabase.from('alerts').insert({
+            'alert_type': 'expiring_soon',
+            'title': 'Expiring Soon!',
+            'description':
+                'Your ${item['grab_title']} is expiring in less than 24 hours.',
+            'is_new': true,
+            'listing_id': entryId, // CRITICAL FIX
+            'receiver_id': userId,
+            'has_actions': true,
+          });
+        }
+      }
+    } catch (e) {
+      // Run silently
+      debugPrint('Expiry alert generation error: $e');
+    }
+  }
+
+  static Future<void> updatePhoneNumber(String newNumber) async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id ?? currentUserId;
+      if (userId == null) throw Exception("User session not found.");
+      
+      await _supabase
+          .from('profiles')
+          .update({'phone_number': newNumber})
+          .eq('id', userId);
+    } catch (e) {
+      throw Exception(ErrorUtils.getFriendlyErrorMessage(e));
+    }
   }
 
   // Velasquez: ito na yung updated upload method natin.
@@ -301,7 +395,7 @@ class SupabaseService {
       grabTitle: json['grab_title'] ?? '',                 
       backstory: json['backstory'] ?? '',           
       timeWindow: json['time_window'] ?? '',          
-      dropDistance: '0.1 mi',     
+      dropDistance: json['drop_distance']?.toString() ?? '0.1 km',     
       meetupSpot: json['meetup_spot'] ?? '',             
       posterAlias: profile?['full_name'] ?? json['poster_alias'] ?? 'Anonymous',
       posterAvatarUrl: profile?['avatar_url'], 
@@ -318,6 +412,10 @@ class SupabaseService {
       expiryDate: json['time_window'] != null 
           ? DateTime.tryParse(json['time_window'].toString())
           : null,
+      // claimedAt: json['claimed_at'] != null 
+      //     ? DateTime.tryParse(json['claimed_at'].toString())
+      //     : null,
+      isStrayFeed: json['is_stray_feed'] ?? false,
       );
       }
 
@@ -329,6 +427,7 @@ class SupabaseService {
     if (alertTypeString == 'expiry') type = AlertType.expiry;
     if (alertTypeString == 'success') type = AlertType.success;
     if (alertTypeString == 'warning') type = AlertType.warning;
+    if (alertTypeString == 'expiring_soon') type = AlertType.expiringSoon;
 
     return AlertListing(
       alertId: json['alert_id'].toString(),
@@ -339,8 +438,9 @@ class SupabaseService {
           ? (DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now().subtract(const Duration(seconds: 1))) 
           : DateTime.now().subtract(const Duration(seconds: 1)),
       isNew: json['is_new'] ?? true,
-      hasActions: json['has_actions'] ?? (type == AlertType.claim || type == AlertType.nearby || type == AlertType.success || type == AlertType.warning), 
-      senderAvatar: json['sender_avatar'], // This could be added to the alerts table or joined
+      hasActions: json['has_actions'] ?? (type == AlertType.claim || type == AlertType.nearby || type == AlertType.success || type == AlertType.warning || type == AlertType.expiringSoon), 
+      senderAvatar: json['sender_avatar'],
+      listingId: json['listing_id']?.toString(), // Task 2: Mapping listing_id column
     );
   }
 }

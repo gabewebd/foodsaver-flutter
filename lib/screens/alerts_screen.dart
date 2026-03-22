@@ -1,13 +1,91 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/alert_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
+import '../widgets/witty_offline_banner.dart';
+import '../utils/error_utils.dart';
+import '../screens/my_listing_screen.dart';
+import '../screens/food_item_screen.dart';
 
 // Yamaguchi, Dito mo na-monitor lahat ng ganap sa app. 
+// Camus, paki-check yung design system natin dito pre, kung pasok sa branding details.
 // Stay updated pre para mabilis yung response sa mga claims!
-class AlertsScreen extends StatelessWidget {
+class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
+
+  @override
+  State<AlertsScreen> createState() => _AlertsScreenState();
+}
+
+class _AlertsScreenState extends State<AlertsScreen> {
+  late Stream<List<AlertListing>> _alertsStream;
+  final Set<String> _readIds = {}; // Track locally read IDs for instant UI update
+  final Set<String> _dismissedIds = {}; // Keep this if we ever want to hide completely // Yamaguchi: Local state para instant dismissal.
+
+  @override
+  void initState() {
+    super.initState();
+    _alertsStream = SupabaseService.getAlertsStream();
+  }
+
+  // Yamaguchi: Para diretso na sa MyListingScreen pag kinlick, as per User Story US.05.
+  Future<void> _handleViewDetails(
+      BuildContext context, AlertListing alert) async {
+    // Yamaguchi: Mark as read na 'to pre para mawala na yung 'New' indicator at buttons instantly.
+    setState(() => _readIds.add(alert.alertId));
+    await SupabaseService.markAlertAsRead(alert.alertId);
+
+    if (alert.listingId == null) return;
+
+    try {
+      
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFF0F9D58))),
+      );
+
+      final listing = await SupabaseService.getFoodListingById(alert.listingId!);
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Pop loading
+
+      if (listing != null) {
+        // Yamaguchi: Ownership check 'to pre. Kung sa kanya yung post, dun sa edit view.
+        // Kung claimer siya, sa public view lang para di niya ma-edit yung post ng iba!
+        final currentUserId =
+            Supabase.instance.client.auth.currentUser?.id ??
+            SupabaseService.currentUserId;
+
+        if (listing.userId == currentUserId) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => MyListingScreen(foodData: listing)),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => FoodItemScreen(foodData: listing)),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Listing no longer available.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${ErrorUtils.getFriendlyErrorMessage(e)}')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,14 +93,36 @@ class AlertsScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF1F8F1),
       body: StreamBuilder<List<AlertListing>>(
         // Yamaguchi: Real-time stream to pre, no need to refresh. Matic lilitaw yung bago.
-        stream: SupabaseService.getAlertsStream(),
+        stream: _alertsStream,
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Column(
+              children: [
+                _buildHeader(context, 0),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: WittyOfflineBanner(
+                        onRetry: () => setState(() {}),
+                        message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final alerts = snapshot.data ?? [];
-          final newCount = alerts.where((a) => a.isNew).length;
+          final allAlerts = snapshot.data ?? [];
+          // Yamaguchi: Filter natin yung mga d-in-ismiss na natin locally para instant feedback.
+          final alerts =
+              allAlerts.where((a) => !_dismissedIds.contains(a.alertId)).toList();
+          final newCount = alerts.where((a) => a.isNew && !_readIds.contains(a.alertId)).length;
 
           return Column(
             children: [
@@ -85,13 +185,14 @@ class AlertsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              // Yamaguchi: Pag wala nang bago, gawin nating grey para di masakit sa mata.
+              color: newCount > 0 ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               '$newCount New',
               style: GoogleFonts.nunito(
-                color: Colors.white,
+                color: newCount > 0 ? Colors.white : Colors.white.withOpacity(0.6),
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
               ),
@@ -104,15 +205,23 @@ class AlertsScreen extends StatelessWidget {
 
 
   Widget _buildAlertCard(BuildContext context, AlertListing alert) {
-    bool isGreen = (alert.type == AlertType.claim || alert.type == AlertType.success) && alert.isNew;
-    bool isOrange = (alert.type == AlertType.nearby || alert.type == AlertType.warning) && alert.isNew;
-    
+    // Yamaguchi: Ownership and local read status check 'to pre.
+    final bool effectivelyNew = alert.isNew && !_readIds.contains(alert.alertId);
+
+    bool isGreen =
+        (alert.type == AlertType.claim || alert.type == AlertType.success) && effectivelyNew;
+    bool isOrange =
+        (alert.type == AlertType.nearby || alert.type == AlertType.warning) && effectivelyNew;
+    bool isRed = alert.type == AlertType.expiringSoon;
+
     Color borderColor = Colors.grey.withOpacity(0.1);
     if (isGreen) borderColor = const Color(0xFF0F9D58).withOpacity(0.3);
     if (isOrange) borderColor = const Color(0xFFF57C00).withOpacity(0.3);
+    if (isRed) borderColor = Colors.red.withOpacity(0.5);
     Color? accentColor;
     if (isGreen) accentColor = const Color(0xFF0F9D58);
     if (isOrange) accentColor = const Color(0xFFF57C00);
+    if (isRed) accentColor = Colors.red;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -120,7 +229,11 @@ class AlertsScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         // Task 3: Border only for NEw alerts
-        border: alert.isNew ? Border.all(color: accentColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.1), width: 1.5) : null,
+        border: effectivelyNew
+            ? Border.all(
+                color: accentColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.1),
+                width: 1.5)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -134,7 +247,7 @@ class AlertsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Left Accent Bar (Image 1)
-            if (alert.isNew && accentColor != null)
+            if (effectivelyNew && accentColor != null)
               Container(
                 width: 6,
                 decoration: BoxDecoration(
@@ -147,21 +260,23 @@ class AlertsScreen extends StatelessWidget {
               ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildIconForType(alert.type, alert.isNew, alert.senderAvatar),
+                        _buildIconForType(
+                            alert.type, alert.isNew, alert.senderAvatar),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
@@ -173,12 +288,14 @@ class AlertsScreen extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                  Text(
+                                    Text(
                                     TimeUtils.getTimeAgo(alert.createdAt),
                                     style: GoogleFonts.nunito(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
-                                      color: alert.isNew ? const Color(0xFF0F9D58) : Colors.grey[400],
+                                      color: effectivelyNew
+                                          ? const Color(0xFF0F9D58)
+                                          : Colors.grey[400],
                                     ),
                                   ),
                                 ],
@@ -193,39 +310,56 @@ class AlertsScreen extends StatelessWidget {
                                   height: 1.3,
                                 ),
                               ),
-                              if (alert.hasActions && alert.isNew) ...[
+                              if (alert.hasActions && effectivelyNew) ...[
                                 const SizedBox(height: 16),
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
                                   children: [
                                     ElevatedButton(
-                                      onPressed: () async {
-                                        // Task: Navigate to details then mark as viewed
-                                        await SupabaseService.markAlertAsViewed(alert.alertId);
-                                      },
+                                      onPressed: () =>
+                                          _handleViewDetails(context, alert),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF00C853), // Vibrant Green (Image 1)
+                                        backgroundColor: const Color(
+                                            0xFF0F9D58), // Vibrant Green (Image 1)
                                         foregroundColor: Colors.white,
                                         elevation: 2,
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 0),
                                         minimumSize: const Size(0, 42),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14)),
                                       ),
-                                      child: Text('View Details', style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w900)),
+                                      child: Text('View Details',
+                                          style: GoogleFonts.nunito(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w900)),
                                     ),
-                                    const SizedBox(width: 12),
                                     ElevatedButton(
                                       onPressed: () async {
-                                        await SupabaseService.markAlertAsViewed(alert.alertId);
+                                        // Yamaguchi: Mark as read lang pre, huwag ide-delete sa DB para may history pa rin siya sa feed.
+                                        setState(() => _readIds.add(alert.alertId));
+                                        await SupabaseService.markAlertAsRead(
+                                            alert.alertId);
                                       },
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFFF3F4F6),
-                                        foregroundColor: const Color(0xFF4B5563),
+                                        backgroundColor:
+                                            const Color(0xFFF3F4F6),
+                                        foregroundColor:
+                                            const Color(0xFF4B5563),
                                         elevation: 0,
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 0),
                                         minimumSize: const Size(0, 42),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14)),
                                       ),
-                                      child: Text('Dismiss', style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w900)),
+                                      child: Text('Dismiss',
+                                          style: GoogleFonts.nunito(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800)),
                                     ),
                                   ],
                                 ),
@@ -289,14 +423,16 @@ class AlertsScreen extends StatelessWidget {
         break;
       case AlertType.expiry:
       case AlertType.warning:
+      case AlertType.expiringSoon:
+        // Yamaguchi: Dinagdag ko yung red warning UI dito para mapansin agad pag malapit na ma-panis yung item.
         mainIcon = Container(
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: type == AlertType.expiry ? const Color(0xFFEF4444) : const Color(0xFFF57C00),
+            color: (type == AlertType.expiry || type == AlertType.expiringSoon) ? const Color(0xFFEF4444) : const Color(0xFFF57C00),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(type == AlertType.expiry ? Icons.access_time : Icons.warning_amber_rounded, color: Colors.white, size: 28),
+          child: Icon((type == AlertType.expiry || type == AlertType.expiringSoon) ? Icons.warning_amber_rounded : Icons.warning_amber_rounded, color: Colors.white, size: 28),
         );
         break;
     }

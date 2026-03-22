@@ -9,6 +9,8 @@ import '../services/food_keeper_service.dart';
 import '../models/food_keeper.dart';
 import '../services/usda_recall_service.dart';
 import '../models/usda_recall.dart';
+import '../widgets/witty_offline_banner.dart';
+import '../utils/error_utils.dart';
 
 // Mark Dave, Welcome sa Sustainability Hub natin pre! 
 // Dito natin ipapakita yung impact natin sa environment. Wag mong guluhin yung layout.
@@ -34,22 +36,43 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   children: [
-                    const SizedBox(height: 20),
-                    _buildProfileCard(),
-                    const SizedBox(height: 20),
-                    // Mark Dave, Hinihila natin yung stats mo mula sa database.
-                    FutureBuilder<Map<String, int>>(
-                      future: SupabaseService.getUserMetrics(),
+                    // Velasquez: Centralized Database Connectivity Check
+                    // If the food stream fails, the database is likely offline.
+                    // We hide all DB-driven sections and show the Offline Banner instead.
+                    StreamBuilder<List<FoodListing>>(
+                      stream: SupabaseService.getFoodStream(),
                       builder: (context, snapshot) {
-                        final shared = snapshot.data?['shared'] ?? 0;
-                        final claimed = snapshot.data?['claimed'] ?? 0;
-                        return _buildStatsRow(shared.toString(), claimed.toString());
+                        if (snapshot.hasError) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 20, bottom: 40),
+                            child: WittyOfflineBanner(
+                              onRetry: () => setState(() {}),
+                              message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            _buildProfileCard(),
+                            const SizedBox(height: 20),
+                            FutureBuilder<Map<String, int>>(
+                              future: SupabaseService.getUserMetrics(),
+                              builder: (context, snapshot) {
+                                final shared = snapshot.data?['shared'] ?? 0;
+                                final claimed = snapshot.data?['claimed'] ?? 0;
+                                return _buildStatsRow(shared.toString(), claimed.toString());
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                            _buildListingsSection(context),
+                            const SizedBox(height: 24),
+                            _buildClaimedItemsSection(context),
+                          ],
+                        );
                       },
                     ),
-                    const SizedBox(height: 24),
-                    _buildListingsSection(context),
-                    const SizedBox(height: 24),
-                    _buildClaimedItemsSection(context), // New Section
                     const SizedBox(height: 24),
                     _buildDailyTipSection(),
                     const SizedBox(height: 25),
@@ -97,32 +120,45 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
               ),
             ],
           ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                onPressed: () async {
-                  // Mark Dave, Para makapag-switch ng account si user.
-                  await SupabaseService.logoutUser();
-                  if (!context.mounted) return;
-                  // Velasquez: Reload the app to hit AuthGate logic.
-                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-                },
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.settings_outlined,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ],
+          // Mark Dave: Inalis ko na yung settings button pre. Isang logout icon na lang para malinis yung header natin.
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            onPressed: () => _showLogoutConfirmation(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Text('Log Out?',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900, fontSize: 22)),
+        content: Text(
+            'Are you sure you want to log out of FoodSaver? Your progress and impact records will be saved.',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w600, fontSize: 16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel',
+                style: GoogleFonts.nunito(
+                    color: Colors.grey, fontWeight: FontWeight.w800)),
+          ),
+          TextButton(
+            onPressed: () async {
+              // Mark Dave: Nilagyan ko ng confirmation pre para iwas aksidenteng pindot sa logout.
+              await SupabaseService.logoutUser();
+              if (!context.mounted) return;
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+            },
+            child: Text('Log Out',
+                style: GoogleFonts.nunito(
+                    color: Colors.red, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -134,14 +170,21 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
       future: SupabaseService.getCurrentUserProfile(),
       builder: (context, snapshot) {
         // Mark Dave, habang naglo-load, pakitaan muna natin ng loading state.
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(color: Colors.red[700], fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          );
         }
 
         final profileData = snapshot.data;
         final fullName = profileData?['full_name'] ?? 'Eco Warrior User';
         final avatarUrl = profileData?['avatar_url'];
         final buildingNo = profileData?['building_no'] ?? 'Active Member';
+        final phoneNumber = profileData?['phone_number'] ?? 'No number set';
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -164,7 +207,8 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF2E7D32), width: 2),
+                      border: Border.all(
+                          color: const Color(0xFF0F9D58), width: 1.5),
                     ),
                     child: CircleAvatar(
                       radius: 35,
@@ -198,11 +242,11 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      fullName,
+                      fullName.toLowerCase(), // Image 1 & 2: lowercase names
                       style: GoogleFonts.nunito(
-                        fontSize: 20,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF2D3142),
+                        color: const Color(0xFF1B264F), // Navy color from sample
                       ),
                     ),
                     Text(
@@ -213,18 +257,47 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone_outlined,
+                            size: 16, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            phoneNumber,
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () =>
+                              _showEditPhoneDialog(context, phoneNumber),
+                          child: const Icon(Icons.edit,
+                              size: 14, color: Color(0xFF0F9D58)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         const Icon(Icons.emoji_events_outlined,
-                            color: Colors.orange, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Contributor',
-                          style: GoogleFonts.nunito(
-                            color: Colors.orange[800],
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFE65100), size: 16),
+                        const SizedBox(width: 8),
+                        StatefulBuilder(
+                          builder: (context, setState) => Expanded(
+                            child: Text(
+                              'Contributor',
+                              style: GoogleFonts.nunito(
+                                color: const Color(0xFFE65100),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -352,16 +425,10 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
           StreamBuilder<List<FoodListing>>(
             stream: SupabaseService.getFoodStream(),
             builder: (context, snapshot) {
-              // Task 3: Explicitly catch and display errors
               if (snapshot.hasError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Text(
-                      'Stream Error: ${snapshot.error}', 
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
+                return WittyOfflineBanner(
+                  onRetry: () => setState(() {}),
+                  message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
                 );
               }
 
@@ -443,6 +510,13 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
           StreamBuilder<List<FoodListing>>(
             stream: SupabaseService.getFoodStream(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return WittyOfflineBanner(
+                  onRetry: () => setState(() {}),
+                  message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+                );
+              }
+
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -581,6 +655,144 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
     );
   }
 
+  void _showRecallDetails(BuildContext context, UsdaRecall recall) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFD32F2F),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recall Alert',
+                        style: GoogleFonts.nunito(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFFD32F2F),
+                        ),
+                      ),
+                      Text(
+                        recall.date,
+                        style: GoogleFonts.nunito(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              recall.title,
+              style: GoogleFonts.nunito(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF2D3142),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Risk: ${recall.riskLevel}',
+                style: GoogleFonts.nunito(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.red[700],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Reason for Recall',
+              style: GoogleFonts.nunito(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF2D3142),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              recall.reason,
+              style: GoogleFonts.nunito(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Summary',
+              style: GoogleFonts.nunito(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF2D3142),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Text(
+                  recall.cleanSummary,
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    color: Colors.grey[700],
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRecallAlertsSection() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -599,25 +811,31 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFD32F2F),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.warning_amber_rounded,
-                    color: Colors.white, size: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFD32F2F),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded,
+                        color: Colors.white, size: 16),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Active Food Recalls',
+                    style: GoogleFonts.nunito(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFFD32F2F),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Active Food Recalls',
-                style: GoogleFonts.nunito(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFFD32F2F),
-                ),
-              ),
+              const Icon(Icons.keyboard_arrow_right_rounded, color: Colors.grey),
             ],
           ),
           const SizedBox(height: 16),
@@ -628,55 +846,125 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+              if (snapshot.hasError) {
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.error_outline, color: Color(0xFFD32F2F), size: 30),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Recall API Error: ${snapshot.error.toString().replaceAll('Exception: ', '')}',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.nunito(
+                          fontSize: 13,
+                          color: const Color(0xFFD32F2F),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => setState(() {}),
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[100],
+                          foregroundColor: const Color(0xFFD32F2F),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return Text(
                   'No recent recall alerts from USDA FSIS.',
                   style: GoogleFonts.nunito(color: Colors.grey),
                 );
               }
 
-              // Aguiluz: Ito yung initial trigger natin para sa Recalls.
-              // Isa lang yung ipakita natin para hindi siksikan sa screen.
               final latestRecall = snapshot.data!.first;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    latestRecall.title,
-                    style: GoogleFonts.nunito(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF2D3142),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'Risk: ${latestRecall.riskLevel}',
+              return InkWell(
+                onTap: () => _showRecallDetails(context, latestRecall),
+                borderRadius: BorderRadius.circular(15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      latestRecall.shortTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.red[700],
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF2D3142),
+                        height: 1.2,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    latestRecall.cleanSummary,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.nunito(
-                      fontSize: 13,
-                      color: Colors.grey[600],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            latestRecall.riskLevel,
+                            style: GoogleFonts.nunito(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.red[700],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          latestRecall.date,
+                          style: GoogleFonts.nunito(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    Text(
+                      latestRecall.cleanSummary,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.nunito(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap to read details...',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: const Color(0xFFD32F2F),
+                        fontWeight: FontWeight.w700,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
               );
             },
           ),
@@ -840,6 +1128,83 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
           ),
         ],
       ),
+    );
+  }
+  Future<void> _showEditPhoneDialog(BuildContext context, String currentNumber) async {
+    final TextEditingController phoneController = TextEditingController(text: currentNumber == 'No number set' ? '' : currentNumber);
+    // Velasquez: Ginawa kong dialog 'to para mabilis lang ma-edit ng user yung number nila bago sila mag-post ng item.
+    return showDialog(
+      context: context,
+      builder: (context) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Update Contact Number', style: GoogleFonts.nunito(fontWeight: FontWeight.w900)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. +63 912 345 6789',
+                      prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF0F9D58)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF0F9D58), width: 2),
+                      ),
+                    ),
+                  ),
+                  if (isSaving)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16.0),
+                      child: CircularProgressIndicator(color: Color(0xFF0F9D58)),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: Text('Cancel', style: GoogleFonts.nunito(color: Colors.grey, fontWeight: FontWeight.w600)),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving ? null : () async {
+                    if (phoneController.text.trim().isEmpty) return;
+                    setDialogState(() => isSaving = true);
+                    try {
+                      await SupabaseService.updatePhoneNumber(phoneController.text.trim());
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Phone number updated successfully!'), 
+                          backgroundColor: Color(0xFF0F9D58),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      setState(() {}); // Refresh profile card
+                    } catch (e) {
+                      setDialogState(() => isSaving = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F9D58),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('Save', style: GoogleFonts.nunito(fontWeight: FontWeight.w700)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

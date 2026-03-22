@@ -8,6 +8,7 @@ import 'screens/share_food_screen.dart';
 import 'screens/alerts_screen.dart';
 import 'screens/sustainability_hub_screen.dart';
 import 'data/supabase_service.dart';
+import 'models/alert_listing.dart';
 
 // Velasquez: Kulay ng FoodSaver, wag niyo na palitan pre.
 const brandGreen = Color(0xFF0F9D58); 
@@ -73,15 +74,30 @@ class FoodSaverCoreApp extends StatelessWidget {
   }
 }
 
-class MainShellCoordinator extends StatelessWidget {
-  MainShellCoordinator({super.key});
+class MainShellCoordinator extends StatefulWidget {
+  const MainShellCoordinator({super.key});
 
+  // Velasquez: Static method para pwede nating tawagin kahit saan sa app yung pag-switch ng tab.
+  static void setTab(BuildContext context, int index) {
+    final state = context.findAncestorStateOfType<_MainShellCoordinatorState>();
+    state?._setTab(index);
+  }
+
+  @override
+  State<MainShellCoordinator> createState() => _MainShellCoordinatorState();
+}
+
+class _MainShellCoordinatorState extends State<MainShellCoordinator> {
   final ValueNotifier<int> _navController = ValueNotifier<int>(0);
 
+  void _setTab(int index) {
+    _navController.value = index;
+  }
+
   final List<Widget> _injectedScreens = const [
-    HomeFeedScreen(),        
-    ShareFoodScreen(),       
-    AlertsScreen(),          
+    HomeFeedScreen(),
+    ShareFoodScreen(),
+    AlertsScreen(),
     SustainabilityHubScreen()
   ]; // Velasquez: Dito niyo lang idagdag pag may bagong screen, wag na sa main code.
 
@@ -120,26 +136,41 @@ class MainShellCoordinator extends StatelessWidget {
             selectedItemColor: brandGreen,
             unselectedItemColor: Colors.grey.shade400,
             showSelectedLabels: true,
-            showUnselectedLabels: true, 
-            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
-            items: const [
-              BottomNavigationBarItem(
+            showUnselectedLabels: true,
+            selectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            unselectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+            items: [
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
                 activeIcon: Icon(Icons.home),
                 label: 'Home',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.add_box_outlined),
                 activeIcon: Icon(Icons.add_box),
                 label: 'Post',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.notifications_outlined),
-                activeIcon: Icon(Icons.notifications),
+                icon: StreamBuilder<List<AlertListing>>(
+                  stream: SupabaseService.getAlertsStream(),
+                  builder: (context, snapshot) {
+                    final unreadCount = snapshot.hasData
+                        ? snapshot.data!.where((a) => a.isNew).length
+                        : 0;
+                    return Badge(
+                      isLabelVisible: unreadCount > 0,
+                      label: Text(unreadCount.toString()),
+                      backgroundColor: Colors.red,
+                      child: const Icon(Icons.notifications_outlined),
+                    );
+                  },
+                ),
+                activeIcon: const Icon(Icons.notifications),
                 label: 'Alerts',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline),
                 activeIcon: Icon(Icons.person),
                 label: 'Profile',

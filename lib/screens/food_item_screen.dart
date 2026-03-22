@@ -4,8 +4,10 @@ import '../models/food_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
 import 'home_feed_screen.dart';
+import '../utils/error_utils.dart';
 
 // Yamzon: Welcome sa detail page ng mga pagkain! 
+// Camus, paki-check pre yung glassmorphism effects natin dito kung premium tignan.
 // Dito tinitignan ni user lahat ng details bago i-claim. Paki-test yung claim button!
 class FoodItemScreen extends StatefulWidget {
   final FoodListing foodData;
@@ -55,13 +57,45 @@ class _FoodItemScreenState extends State<FoodItemScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 20),
-                        Text(
-                          _currentData.grabTitle,
-                          style: GoogleFonts.nunito(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1A1A1A),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _currentData.grabTitle,
+                                style: GoogleFonts.nunito(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1A1A1A),
+                                ),
+                              ),
+                            ),
+                            // Aguiluz: Paw icon badge para sa Stray Feed items details view.
+                            if (_currentData.isStrayFeed)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF3E0),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFE65100).withOpacity(0.2)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.pets, color: Color(0xFFE65100), size: 18),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'STRAY FEED',
+                                      style: GoogleFonts.nunito(
+                                        color: const Color(0xFFE65100),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 12,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -87,6 +121,8 @@ class _FoodItemScreenState extends State<FoodItemScreen> {
                         _buildUserRow(),
                         const Divider(height: 48, color: Color(0xFFF3F4F6)),
                         _buildLocationSection(),
+                        const SizedBox(height: 16),
+                        _buildDistanceSection(),
                         const SizedBox(height: 32),
                         _buildDescriptionSection(),
                         const SizedBox(height: 40),
@@ -283,26 +319,67 @@ class _FoodItemScreenState extends State<FoodItemScreen> {
           child: const Icon(Icons.location_on_outlined, color: Color(0xFF0F9D58)),
         ),
         const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Pickup Location',
-              style: GoogleFonts.nunito(
-                fontSize: 14,
-                color: const Color(0xFF6B7280),
-                fontWeight: FontWeight.w700,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Pickup Location',
+                style: GoogleFonts.nunito(
+                  fontSize: 14,
+                  color: const Color(0xFF6B7280),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            Text(
-              _currentData.meetupSpot,
-              style: GoogleFonts.nunito(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF2D3142),
+              Text(
+                _currentData.meetupSpot,
+                style: GoogleFonts.nunito(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF2D3142),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDistanceSection() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFE0B2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(Icons.directions_walk, color: Color(0xFFE65100)),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Estimated Distance',
+                style: GoogleFonts.nunito(
+                  fontSize: 14,
+                  color: const Color(0xFF6B7280),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                _currentData.dropDistance,
+                style: GoogleFonts.nunito(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFFE65100),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -360,23 +437,41 @@ class _FoodItemScreenState extends State<FoodItemScreen> {
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                      title: const Text('Yehey!'),
-                      content: const Text('You have successfully claimed this item. Please proceed to the meetup spot!'),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28)),
+                      title: Text('Yehey!',
+                          style: GoogleFonts.nunito(
+                              fontWeight: FontWeight.w900, fontSize: 22)),
+                      content: Text(
+                          'You have successfully claimed this item. Please proceed to the meetup spot!',
+                          style: GoogleFonts.nunito(
+                              fontWeight: FontWeight.w600, fontSize: 16)),
                       actions: [
-                        TextButton(
+                        ElevatedButton(
                           onPressed: () {
                             Navigator.pop(context);
                             Navigator.pop(context);
                           },
-                          child: const Text('Got it!', style: TextStyle(color: Color(0xFF0F9D58), fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE8F5E9),
+                            foregroundColor: const Color(0xFF2E7D32),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: Text('Got it!',
+                              style: GoogleFonts.nunito(
+                                  fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ),
                   );
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error claiming: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text(ErrorUtils.getFriendlyErrorMessage(e)), 
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               },

@@ -1,6 +1,6 @@
 // Yamaguchi: Wag mo muna galawin 'tong AlertType, baka mag-crash yung fetch function.
 // Inayos ko na 'to para sa real-time updates natin.
-enum AlertType { claim, nearby, follower, expiry, success, warning }
+enum AlertType { claim, nearby, follower, expiry, success, warning, expiringSoon }
 
 class AlertListing {
   final String alertId;
@@ -11,6 +11,7 @@ class AlertListing {
   final bool isNew;
   final bool hasActions;
   final String? senderAvatar;
+  final String? listingId; // Task 2: Added to link alerts to food listings.
 
   AlertListing({
     required this.alertId,
@@ -21,5 +22,6 @@ class AlertListing {
     this.isNew = false,
     this.hasActions = false,
     this.senderAvatar,
+    this.listingId,
   });
 }

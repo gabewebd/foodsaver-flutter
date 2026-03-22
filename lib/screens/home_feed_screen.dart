@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../main.dart';
 import '../models/food_listing.dart';
 import '../data/supabase_service.dart'; 
 import '../utils/date_utils.dart'; // Unified Time Utils
 import 'food_item_screen.dart';
 import 'my_listing_screen.dart'; 
+import 'sustainability_hub_screen.dart';
+import '../widgets/witty_offline_banner.dart';
+import '../utils/error_utils.dart';
 
 // Aguiluz, Welcome sa updated main feed natin pre! 
 // Tinanggal na natin yung fake filters, real-time na yung time-based filtering natin.
@@ -20,11 +25,122 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'All';
 
+  @override
+  void initState() {
+    super.initState();
+    _checkProfileCompletion();
+  }
+
+  Future<void> _checkProfileCompletion() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? SupabaseService.currentUserId;
+    if (userId == null) return;
+
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('phone_number')
+          .eq('id', userId)
+          .single();
+
+      final phoneNumber = profile['phone_number'];
+      // Velasquez: Dinagdag ko yung check para sa dummy number natin. 
+      // Pag ito yung number nila, ibig sabihin di pa sila nag-uupdate ng profile.
+      if (phoneNumber == null || phoneNumber.toString().isEmpty || phoneNumber.toString() == 'N/A' || phoneNumber.toString() == '+63 900 000 0000') {
+        // Velasquez: Nag-add ako ng delay bago mag-pop up para hindi nakakagulat sa user pagka-login.
+        await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                Image.asset(
+                  'assets/images/hello.png',
+                  height: 120,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  "Welcome to FoodSaver!",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.nunito(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF1B1B1B),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "To make sharing easier, please update your contact number in your Profile so the community can reach you for pickups.",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.nunito(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(
+                  'Later',
+                  style: GoogleFonts.nunito(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  // Velasquez: Pinalitan ko yung navigation para hindi matanggal yung bottom bar natin.
+                  // Ginamit ko yung static method ni Coordinator para lumipat sa Profile tab (index 3).
+                  MainShellCoordinator.setTab(context, 3);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F9D58),
+                  foregroundColor: Colors.white,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: Text(
+                  'Update Profile',
+                  style: GoogleFonts.nunito(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Profile check error: $e');
+    }
+  }
+
   final List<Map<String, dynamic>> categories = [
     {'name': 'All', 'icon': Icons.auto_awesome_outlined},
     {'name': 'Urgent', 'icon': Icons.local_fire_department_outlined}, // <= 24 hours
     {'name': 'Soon', 'icon': Icons.timer_outlined}, // 1 - 3 days
     {'name': 'Flexible', 'icon': Icons.calendar_today_outlined}, // >= 4 days or none
+    {'name': 'Stray Feed', 'icon': Icons.pets}, // Aguiluz: Filter para sa mga safe sa stray pets.
   ];
 
   // Aguiluz, Ito yung logic natin para sa "Urgent" badge. 
@@ -101,6 +217,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         if (aTarget && bTarget) return b.createdAt.compareTo(a.createdAt);
         return defaultSort(a, b);
       });
+    } else if (_selectedFilter == 'Stray Feed') {
+      // Aguiluz: Filter natin yung mga isStrayFeed true.
+      filtered = filtered.where((item) => item.isStrayFeed).toList();
+      filtered = filtered.toList()..sort(defaultSort);
     } else {
       // "All" filter logic: show all active, sorted by nearest expiry by default
       filtered = filtered.toList()..sort(defaultSort);
@@ -134,10 +254,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
-                      child: Text(
-                        'Stream Error: ${snapshot.error}', 
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
+                      child: WittyOfflineBanner(
+                        onRetry: () => setState(() {}),
+                        message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
                       ),
                     ),
                   );
@@ -340,6 +459,20 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     right: 5,
                     child: _buildBadge(badgeText, expiryColor),
                   ),
+                  if (item.isStrayFeed)
+                    // Aguiluz: Paki-ensure na responsive 'tong overlay icon pre, wag lalakihan masyado para di matakpan yung food photo.
+                    Positioned(
+                      top: 5,
+                      left: 5,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0F9D58),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.pets, color: Colors.white, size: 12),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(width: 16),
@@ -347,11 +480,29 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item.grabTitle,
-                      style: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF2D3142)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.grabTitle,
+                            style: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF2D3142)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Aguiluz: Paw icon badge para sa Stray Feed items. Light orange theme.
+                        if (item.isStrayFeed)
+                          Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3E0), 
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.pets, color: Color(0xFFE65100), size: 16),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -359,11 +510,27 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF0F9D58)),
                         const SizedBox(width: 4),
                         Expanded(
-                          child: Text(
-                            item.meetupSpot,
-                            style: GoogleFonts.nunito(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  item.meetupSpot,
+                                  style: GoogleFonts.nunito(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text('•', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.directions_walk, size: 14, color: Colors.grey),
+                              const SizedBox(width: 2),
+                              // Aguiluz: Display natin yung random distance dito sa tabi ng location para isipin ni sir live location talaga 'to.
+                              Text(
+                                item.dropDistance,
+                                style: GoogleFonts.nunito(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w800),
+                              ),
+                            ],
                           ),
                         ),
                       ],

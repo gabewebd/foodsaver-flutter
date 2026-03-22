@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'auth_stepper_screen.dart';
 import '../data/supabase_service.dart';
 
-// Velasquez: Master screen para sa login at registration. 
+// Velasquez: Master screen para sa login at registration.
 // Aguiluz, Yamaguchi, dito niyo i-point yung navigation niyo if nag-logout.
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -13,11 +13,18 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  bool _isLogin = true; 
+  bool _isLogin = true;
   bool _isLoading = false;
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   // Velasquez: Login process natin. Matic to sa AuthGate pag successful.
   // Yamzon, paki-check if lumalabas yung loading spinner, minsan stuck eh.
@@ -34,7 +41,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
     setState(() => _isLoading = true);
     final error = await SupabaseService.loginCustomUser(email, password);
-    
+
     if (!mounted) return;
     setState(() => _isLoading = false);
 
@@ -67,6 +74,12 @@ class _AuthScreenState extends State<AuthScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Image.asset(
+                'assets/images/foodsaver-logo.png',
+                height: 120,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 24),
               Text(
                 'Welcome Back.',
                 textAlign: TextAlign.center,
@@ -137,6 +150,7 @@ class _AuthScreenState extends State<AuthScreen> {
             controller: _emailController,
             hint: 'Email Address',
             icon: Icons.email_outlined,
+            enabled: !_isLoading,
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -144,6 +158,7 @@ class _AuthScreenState extends State<AuthScreen> {
             hint: 'Password',
             icon: Icons.lock_outline,
             obscureText: true,
+            enabled: !_isLoading,
           ),
           const SizedBox(height: 32),
           SizedBox(
@@ -154,11 +169,26 @@ class _AuthScreenState extends State<AuthScreen> {
                 backgroundColor: const Color(0xFF0F9D58),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               child: _isLoading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text('Sign In', style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800)),
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      'Sign In',
+                      style: GoogleFonts.nunito(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -166,19 +196,33 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String hint, required IconData icon, bool obscureText = false}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscureText = false,
+    bool enabled = true,
+  }) {
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFFF9FAFB), borderRadius: BorderRadius.circular(15), border: Border.all(color: const Color(0xFFE5E7EB))),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
       child: TextField(
         controller: controller,
         obscureText: obscureText,
+        enabled: enabled,
         style: GoogleFonts.nunito(fontSize: 15),
         decoration: InputDecoration(
           prefixIcon: Icon(icon, color: Colors.grey, size: 20),
           hintText: hint,
           hintStyle: GoogleFonts.nunito(color: Colors.grey, fontSize: 14),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 16,
+            horizontal: 16,
+          ),
         ),
       ),
     );
