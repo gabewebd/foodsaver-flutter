@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../utils/error_utils.dart';
 
 // Velasquez: ito na yung ating final engine!
+// Aguiluz, Camus, Yamaguchi, Yamzon: Paki-check yung integration per module!
 // Ripped out Supabase Auth completely. We now use custom profiles for everything.
 class SupabaseService {
   static final _supabase = Supabase.instance.client;
@@ -201,6 +202,7 @@ class SupabaseService {
       'is_claimed': true,
       'claimer_id': claimerId,
       'claimer_name': claimerName,
+      // 'claimed_at': DateTime.now().toIso8601String(), // Velasquez: Disabled muna para di mag-crash pre.
     }).eq('entry_id', entryId);
 
     // Velasquez: Nilagyan ko na ng listing_id at has_actions: true para lumabas yung View Details button sa UI.
@@ -217,15 +219,20 @@ class SupabaseService {
 
   // Phase 1: Confirm Pickup Action
   static Future<void> confirmPickup(String entryId, String? claimerId) async {
+    // Velasquez: Kuha muna tayo ng title pre para dynamic yung alert.
+    final listing = await _supabase.from('food_listings').select('grab_title').eq('entry_id', entryId).single();
+    final title = listing['grab_title'] ?? 'your item';
+
     await _supabase.from('food_listings').update({
       'is_completed': true, 
     }).eq('entry_id', entryId);
 
     if (claimerId != null && claimerId.isNotEmpty) {
+      // Velasquez: Ginawa kong dynamic yung text para alam agad ng claimer kung anong pagkain yung na-confirm sa notifications nila.
       await _supabase.from('alerts').insert({
         'alert_type': 'success',
         'title': 'Pickup Confirmed',
-        'description': 'The poster confirmed you picked up the item!',
+        'description': 'The poster confirmed you picked up "$title".',
         'receiver_id': claimerId,
         'listing_id': entryId,
         'is_new': true,
@@ -236,6 +243,10 @@ class SupabaseService {
 
   // Phase 1: Reject Pickup Action
   static Future<void> rejectPickup(String entryId, String? claimerId) async {
+    // Velasquez: Hila ulit tayo ng title para sa dynamic description.
+    final listing = await _supabase.from('food_listings').select('grab_title').eq('entry_id', entryId).single();
+    final title = listing['grab_title'] ?? 'your item';
+
     await _supabase.from('food_listings').update({
       'is_claimed': false,
       'claimer_id': null,
@@ -243,14 +254,15 @@ class SupabaseService {
     }).eq('entry_id', entryId);
 
     if (claimerId != null && claimerId.isNotEmpty) {
+      // Velasquez: Dynamic cancelled message pre, para solid ang UX.
       await _supabase.from('alerts').insert({
         'alert_type': 'warning',
         'title': 'Pickup Cancelled',
-        'description': 'The poster cancelled the pickup.',
+        'description': 'The poster cancelled the pickup for "$title".',
         'receiver_id': claimerId,
         'listing_id': entryId,
         'is_new': true,
-        'has_actions': false,
+        'has_actions': true,
       });
     }
   }
@@ -269,11 +281,13 @@ class SupabaseService {
   }
 
   static Future<void> updateListing(String id, FoodListing item, String? imageUrl) async {
+    // Velasquez: Dinagdag ko na yung is_stray_feed sa payload para isave na talaga ng Supabase yung toggle natin.
     await _supabase.from('food_listings').update({
       'grab_title': item.grabTitle,
       'backstory': item.backstory,
       'time_window': item.expiryDate?.toIso8601String() ?? item.timeWindow,
       'meetup_spot': item.meetupSpot,
+      'is_stray_feed': item.isStrayFeed,
       'offline_image': imageUrl ?? item.offlineImage,
     }).eq('entry_id', id);
   }
@@ -318,12 +332,14 @@ class SupabaseService {
 
         if (existingAlert == null) {
           // Velasquez: Added has_actions true para pwede silang dumerecho sa details para i-extend or i-edit.
+          // Velasquez: Pati sa Expiry alerts, kailangan ng listing_id para ma-view nila kung anong item yung mapapanis na.
           await _supabase.from('alerts').insert({
             'alert_type': 'expiring_soon',
             'title': 'Expiring Soon!',
-            'description': 'Your ${item['grab_title']} is expiring in less than 24 hours.',
+            'description':
+                'Your ${item['grab_title']} is expiring in less than 24 hours.',
             'is_new': true,
-            'listing_id': entryId,
+            'listing_id': entryId, // CRITICAL FIX
             'receiver_id': userId,
             'has_actions': true,
           });
@@ -396,6 +412,10 @@ class SupabaseService {
       expiryDate: json['time_window'] != null 
           ? DateTime.tryParse(json['time_window'].toString())
           : null,
+      // claimedAt: json['claimed_at'] != null 
+      //     ? DateTime.tryParse(json['claimed_at'].toString())
+      //     : null,
+      isStrayFeed: json['is_stray_feed'] ?? false,
       );
       }
 

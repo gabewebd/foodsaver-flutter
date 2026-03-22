@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 // Velasquez: Lead model natin 'to, wag niyo basta-basta babaguhin. 
 // Mark Dave, paki-update if may kailangan sa sustainability metrics.
+// Camus, paki-check pre kung okay yung naming convention natin dito sa model.
 class FoodListing {
   final String entryId;
   final String grabTitle;
@@ -21,6 +22,7 @@ class FoodListing {
   final String? claimerName;
   final String? category; 
   final DateTime? expiryDate; 
+  // final DateTime? claimedAt; // Velasquez: Temporary disabled pre hangga't wala pang column sa DB.
   final bool isStrayFeed; // Velasquez: New feature para sa stray animals.
 
   FoodListing({
@@ -42,6 +44,7 @@ class FoodListing {
     this.claimerName,
     this.category,
     this.expiryDate,
+    // this.claimedAt,
     this.isStrayFeed = false,
   });
 
@@ -68,6 +71,9 @@ class FoodListing {
       expiryDate: json['time_window'] != null 
           ? DateTime.tryParse(json['time_window'].toString())
           : null,
+      // claimedAt: json['claimed_at'] != null 
+      //     ? DateTime.tryParse(json['claimed_at'].toString())
+      //     : null,
       isStrayFeed: json['is_stray_feed'] ?? false,
     );
   }
@@ -87,6 +93,7 @@ class FoodListing {
       'is_completed': isCompleted,
       'category': category,
       'time_window': expiryDate?.toIso8601String(),
+      // 'claimed_at': claimedAt?.toIso8601String(),
       'is_stray_feed': isStrayFeed,
     };
   }

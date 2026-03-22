@@ -134,14 +134,20 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Log Out?', style: GoogleFonts.nunito(fontWeight: FontWeight.w900)),
-        content: Text('Are you sure you want to log out of FoodSaver? Your progress and impact records will be saved.', 
-          style: GoogleFonts.nunito(fontWeight: FontWeight.w600)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Text('Log Out?',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900, fontSize: 22)),
+        content: Text(
+            'Are you sure you want to log out of FoodSaver? Your progress and impact records will be saved.',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w600, fontSize: 16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.nunito(color: Colors.grey, fontWeight: FontWeight.w800)),
+            child: Text('Cancel',
+                style: GoogleFonts.nunito(
+                    color: Colors.grey, fontWeight: FontWeight.w800)),
           ),
           TextButton(
             onPressed: () async {
@@ -150,7 +156,9 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
               if (!context.mounted) return;
               Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
             },
-            child: Text('Log Out', style: GoogleFonts.nunito(color: Colors.red, fontWeight: FontWeight.w900)),
+            child: Text('Log Out',
+                style: GoogleFonts.nunito(
+                    color: Colors.red, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -199,7 +207,8 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF2E7D32), width: 2),
+                      border: Border.all(
+                          color: const Color(0xFF0F9D58), width: 1.5),
                     ),
                     child: CircleAvatar(
                       radius: 35,
@@ -233,11 +242,11 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      fullName,
+                      fullName.toLowerCase(), // Image 1 & 2: lowercase names
                       style: GoogleFonts.nunito(
-                        fontSize: 20,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF2D3142),
+                        color: const Color(0xFF1B264F), // Navy color from sample
                       ),
                     ),
                     Text(
@@ -248,40 +257,47 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
-                        const Icon(Icons.phone_outlined, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          phoneNumber,
-                          style: GoogleFonts.nunito(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w600,
+                        const Icon(Icons.phone_outlined,
+                            size: 16, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            phoneNumber,
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(Icons.edit, size: 16, color: Color(0xFF0F9D58)),
-                          onPressed: () => _showEditPhoneDialog(context, phoneNumber),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () =>
+                              _showEditPhoneDialog(context, phoneNumber),
+                          child: const Icon(Icons.edit,
+                              size: 14, color: Color(0xFF0F9D58)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         const Icon(Icons.emoji_events_outlined,
-                            color: Colors.orange, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Contributor',
-                          style: GoogleFonts.nunito(
-                            color: Colors.orange[800],
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFE65100), size: 16),
+                        const SizedBox(width: 8),
+                        StatefulBuilder(
+                          builder: (context, setState) => Expanded(
+                            child: Text(
+                              'Contributor',
+                              style: GoogleFonts.nunito(
+                                color: const Color(0xFFE65100),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
                         ),
                       ],

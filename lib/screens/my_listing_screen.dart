@@ -9,6 +9,7 @@ import 'share_food_screen.dart';
 import '../utils/error_utils.dart';
 
 // Velasquez: Mark Dave, inayos ko na yung dual UI states dito. 
+// Camus, paki-check yung spacing and borders pre, baka may sumablay sa layout.
 // Gumagana na yung "Waiting for Claim" at "Claimed By" states, wag niyo na galawin please.
 // Nakaka-stress na 'tong Supabase sync buti na-fix ko na.
 class MyListingScreen extends StatefulWidget {
@@ -80,6 +81,7 @@ class _MyListingScreenState extends State<MyListingScreen> {
           isClaimed: false,
           claimerId: null,
           claimerName: null,
+          // claimedAt: null, // Velasquez: Temporary disabled pre.
         );
       });
     } catch (e) {
@@ -234,13 +236,45 @@ class _MyListingScreenState extends State<MyListingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _currentFoodData.grabTitle,
-                  style: GoogleFonts.nunito(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF2D3142),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _currentFoodData.grabTitle,
+                        style: GoogleFonts.nunito(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF2D3142),
+                        ),
+                      ),
+                    ),
+                    // Aguiluz: Paw icon badge para sa My Listing details view.
+                    if (_currentFoodData.isStrayFeed)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3E0),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE65100).withOpacity(0.1)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.pets, color: Color(0xFFE65100), size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              'STRAY FEED',
+                              style: GoogleFonts.nunito(
+                                color: const Color(0xFFE65100),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 10,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -594,9 +628,16 @@ class _MyListingScreenState extends State<MyListingScreen> {
                           profile?['building_no'] ?? 'Verified member',
                           style: GoogleFonts.nunito(color: const Color(0xFF6B7280), fontWeight: FontWeight.w600, fontSize: 13),
                         ),
-                        Text(
-                          'Claimed 1 minute ago',
-                          style: GoogleFonts.nunito(color: const Color(0xFF4CAF50), fontWeight: FontWeight.w800, fontSize: 13),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            'Claimed ${TimeUtils.getTimeAgo(_currentFoodData.createdAt)}', // Velasquez: Fallback to createdAt pre.
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -685,41 +726,44 @@ class _MyListingScreenState extends State<MyListingScreen> {
   }
 
   Widget _buildBottomActions() {
-    const Color brandGreen = Color(0xFF0F9D58);
+    final isExpired = _isExpired(_currentFoodData);
+
     return Row(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ShareFoodScreen(existingItem: _currentFoodData),
-                ),
-              ).then((_) async {
-                if (mounted) {
-                  final updatedItem = await SupabaseService.getFoodListingById(_currentFoodData.entryId);
-                  if (updatedItem != null && mounted) {
-                    setState(() {
-                      _currentFoodData = updatedItem;
-                    });
+        if (!isExpired && !_currentFoodData.isCompleted) ...[ // Velasquez: Hide edit if expired or completed pre.
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ShareFoodScreen(existingItem: _currentFoodData),
+                  ),
+                ).then((_) async {
+                  if (mounted) {
+                    final updatedItem = await SupabaseService.getFoodListingById(_currentFoodData.entryId);
+                    if (updatedItem != null && mounted) {
+                      setState(() {
+                        _currentFoodData = updatedItem;
+                      });
+                    }
                   }
-                }
-              });
-            },
-            icon: const Icon(Icons.edit_note),
-            label: const Text('Edit'),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: Colors.white.withOpacity(0.5),
-              foregroundColor: const Color(0xFF4285F4),
-              side: const BorderSide(color: Color(0xFF4285F4), width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 16),
+                });
+              },
+              icon: const Icon(Icons.edit_note),
+              label: const Text('Edit'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.5),
+                foregroundColor: const Color(0xFF4285F4),
+                side: const BorderSide(color: Color(0xFF4285F4), width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 16),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 16),
+          const SizedBox(width: 16),
+        ],
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () => _confirmDelete(context),
@@ -743,10 +787,20 @@ class _MyListingScreenState extends State<MyListingScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Listing?'),
-        content: const Text('Are you sure you want to remove this food listing? This action cannot be undone.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Text('Delete Listing?',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900, fontSize: 22)),
+        content: Text(
+            'Are you sure you want to remove this food listing? This action cannot be undone.',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w600, fontSize: 16)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: GoogleFonts.nunito(
+                      color: Colors.grey, fontWeight: FontWeight.w800))),
           TextButton(
             onPressed: () async {
               await SupabaseService.deleteListing(_currentFoodData.entryId);
@@ -754,7 +808,9 @@ class _MyListingScreenState extends State<MyListingScreen> {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text('Delete',
+                style: GoogleFonts.nunito(
+                    color: Colors.red, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -765,16 +821,35 @@ class _MyListingScreenState extends State<MyListingScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancel Pickup?'),
-        content: const Text('Are you sure you want to cancel this pickup? The item will be available for others to claim again.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Text('Cancel Pickup?',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900, fontSize: 22)),
+        content: Text(
+            'Are you sure you want to cancel this pickup? The item will be available for others to claim again.',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w600, fontSize: 16)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('No, keep it')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE8F5E9),
+              foregroundColor: const Color(0xFF2E7D32),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+            ),
+            child: Text('No, keep it',
+                style: GoogleFonts.nunito(fontWeight: FontWeight.w800)),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _handleReject();
             },
-            child: const Text('Yes, cancel', style: TextStyle(color: Colors.red)),
+            child: Text('Yes, cancel',
+                style: GoogleFonts.nunito(
+                    color: Colors.red, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -785,21 +860,35 @@ class _MyListingScreenState extends State<MyListingScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Confirm Pickup?', style: GoogleFonts.nunito(fontWeight: FontWeight.w900)),
-        content: Text('Are you sure this item has been picked up by $claimerName? This will mark the listing as completed.', 
-          style: GoogleFonts.nunito(fontWeight: FontWeight.w600)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Text('Confirm Pickup?',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900, fontSize: 22)),
+        content: Text(
+            'Are you sure this item has been picked up by $claimerName? This will mark the listing as completed.',
+            style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w600, fontSize: 16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Not yet', style: GoogleFonts.nunito(color: Colors.grey, fontWeight: FontWeight.w800)),
+            child: Text('Not yet',
+                style: GoogleFonts.nunito(
+                    color: Colors.grey, fontWeight: FontWeight.w800)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _handleConfirm();
             },
-            child: Text('Yes, confirmed', style: GoogleFonts.nunito(color: const Color(0xFF0F9D58), fontWeight: FontWeight.w900)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE8F5E9),
+              foregroundColor: const Color(0xFF2E7D32),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+            ),
+            child: Text('Yes, confirmed',
+                style: GoogleFonts.nunito(fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -838,6 +927,8 @@ class _MyListingScreenState extends State<MyListingScreen> {
 
               final profile = snapshot.data!;
               final phoneNumber = profile['phone_number'] ?? 'N/A';
+              // Velasquez: I-check natin kung dummy number pa rin yung gamit ni claimer.
+              final isDummyNumber = phoneNumber == '+63 900 000 0000' || phoneNumber == 'N/A';
               final buildingNo = profile['building_no'] ?? 'Verified member';
 
               return Column(
@@ -854,12 +945,14 @@ class _MyListingScreenState extends State<MyListingScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Contact Details',
-                              style: GoogleFonts.nunito(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
+                            Expanded(
+                              child: Text(
+                                'Contact Details',
+                                style: GoogleFonts.nunito(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                             ),
                             IconButton(
@@ -923,29 +1016,36 @@ class _MyListingScreenState extends State<MyListingScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.phone_outlined, color: Color(0xFF0F9D58)),
+                              const Icon(Icons.phone_outlined,
+                                  color: Color(0xFF0F9D58)),
                               const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Phone Number',
-                                    style: GoogleFonts.nunito(
-                                      color: const Color(0xFF2D3142),
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Phone Number',
+                                      style: GoogleFonts.nunito(
+                                        color: const Color(0xFF2D3142),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    phoneNumber,
-                                    style: GoogleFonts.nunito(
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 18,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      isDummyNumber
+                                          ? 'Contact not updated yet'
+                                          : phoneNumber,
+                                      style: GoogleFonts.nunito(
+                                        color: isDummyNumber
+                                            ? Colors.orange[800]
+                                            : Colors.grey[600],
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 18,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -956,7 +1056,8 @@ class _MyListingScreenState extends State<MyListingScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () => launchUrl(Uri.parse('sms:$phoneNumber')),
+                                // Velasquez: Naka-disable (null) yung button pag dummy number pa rin gamit ni claimer para iwas crash sa url_launcher.
+                                onPressed: isDummyNumber ? null : () => launchUrl(Uri.parse('sms:$phoneNumber')),
                                 icon: const Icon(Icons.chat_bubble_outline),
                                 label: const Text('Send Message'),
                                 style: ElevatedButton.styleFrom(
@@ -971,14 +1072,17 @@ class _MyListingScreenState extends State<MyListingScreen> {
                             ),
                             const SizedBox(width: 12),
                             GestureDetector(
-                               onTap: () => launchUrl(Uri.parse('tel:$phoneNumber')),
-                               child: Container(
-                                 padding: const EdgeInsets.all(18),
-                                 decoration: BoxDecoration(
-                                   color: const Color(0xFF0F9D58),
-                                   borderRadius: BorderRadius.circular(16),
+                               onTap: isDummyNumber ? null : () => launchUrl(Uri.parse('tel:$phoneNumber')),
+                               child: Opacity(
+                                 opacity: isDummyNumber ? 0.5 : 1.0,
+                                 child: Container(
+                                   padding: const EdgeInsets.all(18),
+                                   decoration: BoxDecoration(
+                                     color: const Color(0xFF0F9D58),
+                                     borderRadius: BorderRadius.circular(16),
+                                   ),
+                                   child: const Icon(Icons.phone, color: Colors.white),
                                  ),
-                                 child: const Icon(Icons.phone, color: Colors.white),
                                ),
                             ),
                           ],
@@ -1006,6 +1110,7 @@ extension FoodListingExtension on FoodListing {
     String? claimerName,
     String? category,
     DateTime? expiryDate,
+    DateTime? claimedAt,
   }) {
     return FoodListing(
       entryId: entryId,
@@ -1026,6 +1131,7 @@ extension FoodListingExtension on FoodListing {
       claimerName: claimerName ?? this.claimerName,
       category: category ?? this.category,
       expiryDate: expiryDate ?? this.expiryDate,
+      // claimedAt: claimedAt ?? this.claimedAt,
     );
   }
 }

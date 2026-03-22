@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/alert_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
 import '../widgets/witty_offline_banner.dart';
 import '../utils/error_utils.dart';
-import '../screens/my_listing_screen.dart'; // Added import for MyListingScreen
+import '../screens/my_listing_screen.dart';
+import '../screens/food_item_screen.dart';
 
 // Yamaguchi, Dito mo na-monitor lahat ng ganap sa app. 
+// Camus, paki-check yung design system natin dito pre, kung pasok sa branding details.
 // Stay updated pre para mabilis yung response sa mga claims!
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -17,15 +20,26 @@ class AlertsScreen extends StatefulWidget {
 }
 
 class _AlertsScreenState extends State<AlertsScreen> {
+  late Stream<List<AlertListing>> _alertsStream;
+  final Set<String> _readIds = {}; // Track locally read IDs for instant UI update
+  final Set<String> _dismissedIds = {}; // Keep this if we ever want to hide completely // Yamaguchi: Local state para instant dismissal.
+
+  @override
+  void initState() {
+    super.initState();
+    _alertsStream = SupabaseService.getAlertsStream();
+  }
+
   // Yamaguchi: Para diretso na sa MyListingScreen pag kinlick, as per User Story US.05.
-  Future<void> _handleViewDetails(BuildContext context, AlertListing alert) async {
-    if (alert.listingId == null) {
-      await SupabaseService.markAlertAsRead(alert.alertId);
-      return;
-    }
+  Future<void> _handleViewDetails(
+      BuildContext context, AlertListing alert) async {
+    // Yamaguchi: Mark as read na 'to pre para mawala na yung 'New' indicator at buttons instantly.
+    setState(() => _readIds.add(alert.alertId));
+    await SupabaseService.markAlertAsRead(alert.alertId);
+
+    if (alert.listingId == null) return;
 
     try {
-      await SupabaseService.markAlertAsRead(alert.alertId);
       
       if (!mounted) return;
 
@@ -41,10 +55,25 @@ class _AlertsScreenState extends State<AlertsScreen> {
       Navigator.pop(context); // Pop loading
 
       if (listing != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => MyListingScreen(foodData: listing)),
-        );
+        // Yamaguchi: Ownership check 'to pre. Kung sa kanya yung post, dun sa edit view.
+        // Kung claimer siya, sa public view lang para di niya ma-edit yung post ng iba!
+        final currentUserId =
+            Supabase.instance.client.auth.currentUser?.id ??
+            SupabaseService.currentUserId;
+
+        if (listing.userId == currentUserId) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => MyListingScreen(foodData: listing)),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => FoodItemScreen(foodData: listing)),
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Listing no longer available.')),
@@ -64,7 +93,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
       backgroundColor: const Color(0xFFF1F8F1),
       body: StreamBuilder<List<AlertListing>>(
         // Yamaguchi: Real-time stream to pre, no need to refresh. Matic lilitaw yung bago.
-        stream: SupabaseService.getAlertsStream(),
+        stream: _alertsStream,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Column(
@@ -89,8 +118,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final alerts = snapshot.data ?? [];
-          final newCount = alerts.where((a) => a.isNew).length;
+          final allAlerts = snapshot.data ?? [];
+          // Yamaguchi: Filter natin yung mga d-in-ismiss na natin locally para instant feedback.
+          final alerts =
+              allAlerts.where((a) => !_dismissedIds.contains(a.alertId)).toList();
+          final newCount = alerts.where((a) => a.isNew && !_readIds.contains(a.alertId)).length;
 
           return Column(
             children: [
@@ -173,10 +205,15 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
 
   Widget _buildAlertCard(BuildContext context, AlertListing alert) {
-    bool isGreen = (alert.type == AlertType.claim || alert.type == AlertType.success) && alert.isNew;
-    bool isOrange = (alert.type == AlertType.nearby || alert.type == AlertType.warning) && alert.isNew;
+    // Yamaguchi: Ownership and local read status check 'to pre.
+    final bool effectivelyNew = alert.isNew && !_readIds.contains(alert.alertId);
+
+    bool isGreen =
+        (alert.type == AlertType.claim || alert.type == AlertType.success) && effectivelyNew;
+    bool isOrange =
+        (alert.type == AlertType.nearby || alert.type == AlertType.warning) && effectivelyNew;
     bool isRed = alert.type == AlertType.expiringSoon;
-    
+
     Color borderColor = Colors.grey.withOpacity(0.1);
     if (isGreen) borderColor = const Color(0xFF0F9D58).withOpacity(0.3);
     if (isOrange) borderColor = const Color(0xFFF57C00).withOpacity(0.3);
@@ -192,7 +229,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         // Task 3: Border only for NEw alerts
-        border: alert.isNew ? Border.all(color: accentColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.1), width: 1.5) : null,
+        border: effectivelyNew
+            ? Border.all(
+                color: accentColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.1),
+                width: 1.5)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -206,7 +247,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Left Accent Bar (Image 1)
-            if (alert.isNew && accentColor != null)
+            if (effectivelyNew && accentColor != null)
               Container(
                 width: 6,
                 decoration: BoxDecoration(
@@ -219,21 +260,23 @@ class _AlertsScreenState extends State<AlertsScreen> {
               ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildIconForType(alert.type, alert.isNew, alert.senderAvatar),
+                        _buildIconForType(
+                            alert.type, alert.isNew, alert.senderAvatar),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
@@ -245,12 +288,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                       ),
                                     ),
                                   ),
-                                  Text(
+                                    Text(
                                     TimeUtils.getTimeAgo(alert.createdAt),
                                     style: GoogleFonts.nunito(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
-                                      color: alert.isNew ? const Color(0xFF0F9D58) : Colors.grey[400],
+                                      color: effectivelyNew
+                                          ? const Color(0xFF0F9D58)
+                                          : Colors.grey[400],
                                     ),
                                   ),
                                 ],
@@ -265,37 +310,56 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                   height: 1.3,
                                 ),
                               ),
-                              if (alert.hasActions && alert.isNew) ...[
+                              if (alert.hasActions && effectivelyNew) ...[
                                 const SizedBox(height: 16),
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
                                   children: [
                                     ElevatedButton(
-                                      onPressed: () => _handleViewDetails(context, alert),
+                                      onPressed: () =>
+                                          _handleViewDetails(context, alert),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF0F9D58), // Vibrant Green (Image 1)
+                                        backgroundColor: const Color(
+                                            0xFF0F9D58), // Vibrant Green (Image 1)
                                         foregroundColor: Colors.white,
                                         elevation: 2,
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 0),
                                         minimumSize: const Size(0, 42),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14)),
                                       ),
-                                      child: Text('View Details', style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w900)),
+                                      child: Text('View Details',
+                                          style: GoogleFonts.nunito(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w900)),
                                     ),
-                                    const SizedBox(width: 12),
                                     ElevatedButton(
                                       onPressed: () async {
-                                        // Yamaguchi: Swipe or Dismiss? Dismiss na lang muna pre para malinis yung list.
-                                        await SupabaseService.dismissAlert(alert.alertId);
+                                        // Yamaguchi: Mark as read lang pre, huwag ide-delete sa DB para may history pa rin siya sa feed.
+                                        setState(() => _readIds.add(alert.alertId));
+                                        await SupabaseService.markAlertAsRead(
+                                            alert.alertId);
                                       },
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFFF3F4F6),
-                                        foregroundColor: const Color(0xFF4B5563),
+                                        backgroundColor:
+                                            const Color(0xFFF3F4F6),
+                                        foregroundColor:
+                                            const Color(0xFF4B5563),
                                         elevation: 0,
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 0),
                                         minimumSize: const Size(0, 42),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14)),
                                       ),
-                                      child: Text('Dismiss', style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w900)),
+                                      child: Text('Dismiss',
+                                          style: GoogleFonts.nunito(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800)),
                                     ),
                                   ],
                                 ),

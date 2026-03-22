@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../main.dart';
 import '../models/food_listing.dart';
 import '../data/supabase_service.dart'; 
 import '../utils/date_utils.dart'; // Unified Time Utils
@@ -42,7 +43,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           .single();
 
       final phoneNumber = profile['phone_number'];
-      if (phoneNumber == null || phoneNumber.toString().isEmpty || phoneNumber.toString() == 'N/A') {
+      // Velasquez: Dinagdag ko yung check para sa dummy number natin. 
+      // Pag ito yung number nila, ibig sabihin di pa sila nag-uupdate ng profile.
+      if (phoneNumber == null || phoneNumber.toString().isEmpty || phoneNumber.toString() == 'N/A' || phoneNumber.toString() == '+63 900 000 0000') {
         // Velasquez: Nag-add ako ng delay bago mag-pop up para hindi nakakagulat sa user pagka-login.
         await Future.delayed(const Duration(seconds: 1));
         if (!mounted) return;
@@ -50,48 +53,78 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          builder: (dialogContext) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 10),
-                const Icon(Icons.contact_phone, size: 50, color: Color(0xFF0F9D58)),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+                Image.asset(
+                  'assets/images/hello.png',
+                  height: 120,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 24),
                 Text(
                   "Welcome to FoodSaver!",
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF2D3142)),
+                  style: GoogleFonts.nunito(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF1B1B1B),
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Text(
                   "To make sharing easier, please update your contact number in your Profile so the community can reach you for pickups.",
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(fontSize: 15, color: const Color(0xFF6B7280), fontWeight: FontWeight.w600),
+                  style: GoogleFonts.nunito(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
               ],
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Later', style: GoogleFonts.nunito(color: Colors.grey, fontWeight: FontWeight.w800)),
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(
+                  'Later',
+                  style: GoogleFonts.nunito(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SustainabilityHubScreen()),
-                  );
+                  Navigator.pop(dialogContext);
+                  // Velasquez: Pinalitan ko yung navigation para hindi matanggal yung bottom bar natin.
+                  // Ginamit ko yung static method ni Coordinator para lumipat sa Profile tab (index 3).
+                  MainShellCoordinator.setTab(context, 3);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0F9D58),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
-                child: Text('Update Profile', style: GoogleFonts.nunito(fontWeight: FontWeight.w900)),
+                child: Text(
+                  'Update Profile',
+                  style: GoogleFonts.nunito(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
               ),
             ],
           ),
@@ -447,11 +480,29 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item.grabTitle,
-                      style: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF2D3142)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.grabTitle,
+                            style: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF2D3142)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Aguiluz: Paw icon badge para sa Stray Feed items. Light orange theme.
+                        if (item.isStrayFeed)
+                          Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3E0), 
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.pets, color: Color(0xFFE65100), size: 16),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Row(
