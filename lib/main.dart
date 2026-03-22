@@ -8,6 +8,7 @@ import 'screens/share_food_screen.dart';
 import 'screens/alerts_screen.dart';
 import 'screens/sustainability_hub_screen.dart';
 import 'data/supabase_service.dart';
+import 'models/alert_listing.dart';
 
 // Velasquez: Kulay ng FoodSaver, wag niyo na palitan pre.
 const brandGreen = Color(0xFF0F9D58); 
@@ -123,7 +124,7 @@ class MainShellCoordinator extends StatelessWidget {
             showUnselectedLabels: true, 
             selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
-            items: const [
+            items: [
               BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
                 activeIcon: Icon(Icons.home),
@@ -135,8 +136,21 @@ class MainShellCoordinator extends StatelessWidget {
                 label: 'Post',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.notifications_outlined),
-                activeIcon: Icon(Icons.notifications),
+                icon: StreamBuilder<List<AlertListing>>(
+                  stream: SupabaseService.getAlertsStream(),
+                  builder: (context, snapshot) {
+                    final unreadCount = snapshot.hasData 
+                        ? snapshot.data!.where((a) => a.isNew).length 
+                        : 0;
+                    return Badge(
+                      isLabelVisible: unreadCount > 0,
+                      label: Text(unreadCount.toString()),
+                      backgroundColor: Colors.red,
+                      child: const Icon(Icons.notifications_outlined),
+                    );
+                  },
+                ),
+                activeIcon: const Icon(Icons.notifications),
                 label: 'Alerts',
               ),
               BottomNavigationBarItem(

@@ -88,6 +88,8 @@ class _FoodItemScreenState extends State<FoodItemScreen> {
                         _buildUserRow(),
                         const Divider(height: 48, color: Color(0xFFF3F4F6)),
                         _buildLocationSection(),
+                        const SizedBox(height: 16),
+                        _buildDistanceSection(),
                         const SizedBox(height: 32),
                         _buildDescriptionSection(),
                         const SizedBox(height: 40),
@@ -301,6 +303,43 @@ class _FoodItemScreenState extends State<FoodItemScreen> {
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: const Color(0xFF2D3142),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDistanceSection() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFE0B2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(Icons.directions_walk, color: Color(0xFFE65100)),
+        ),
+        const SizedBox(width: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Estimated Distance',
+              style: GoogleFonts.nunito(
+                fontSize: 14,
+                color: const Color(0xFF6B7280),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              _currentData.dropDistance,
+              style: GoogleFonts.nunito(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFFE65100),
               ),
             ),
           ],

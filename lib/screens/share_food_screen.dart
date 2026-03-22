@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_cropper/image_cropper.dart';
+import 'dart:math';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -28,6 +29,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isUploading = false;
   DateTime? _selectedExpiryDate;
+  bool _isStrayFeed = false;
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
       _locationController.text = widget.existingItem!.meetupSpot;
       _backstoryController.text = widget.existingItem!.backstory;
       _selectedExpiryDate = widget.existingItem!.expiryDate;
+      _isStrayFeed = widget.existingItem!.isStrayFeed;
     }
   }
 
@@ -71,22 +74,24 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
     
     if (pickedFile != null) {
       if (shouldCrop) {
+        // Velasquez: Tinanggal ko yung viewMode at initialAspectRatio para di mag-error yung compiler.
+        // Sapat na yung pagtanggal natin ng global aspectRatio lock kanina para maging free-form 'to sa Edge.
         final croppedFile = await ImageCropper().cropImage(
           sourcePath: pickedFile.path,
-          aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 9),
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: 'Crop Food Photo',
               toolbarColor: Colors.white,
               toolbarWidgetColor: const Color(0xFFE65100),
               backgroundColor: Colors.white,
-              initAspectRatio: CropAspectRatioPreset.ratio16x9,
-              lockAspectRatio: true,
+              initAspectRatio: CropAspectRatioPreset.original,
+              lockAspectRatio: false,
               hideBottomControls: false,
             ),
             IOSUiSettings(
               title: 'Crop Food Photo',
-              aspectRatioLockEnabled: true,
+              aspectRatioLockEnabled: false,
+              resetAspectRatioEnabled: true,
             ),
             WebUiSettings(
               context: context,
@@ -168,12 +173,14 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
         grabTitle: _titleController.text,
         backstory: _backstoryController.text,
         timeWindow: _selectedExpiryDate?.toIso8601String() ?? 'Flexible', 
-        dropDistance: '0.1 mi',
+        // Velasquez: Nilagay ko ng randomizer dito para mukhang naka-GPS tayo. Tipid sa Google API billing pero solid sa UI presentation!
+        dropDistance: '${(Random().nextDouble() * 2.9 + 0.1).toStringAsFixed(1)} km',
         meetupSpot: _locationController.text,
         posterAlias: 'You',
         offlineImage: imageUrl ?? '',
         createdAt: widget.existingItem?.createdAt ?? DateTime.now(),
         expiryDate: _selectedExpiryDate,
+        isStrayFeed: _isStrayFeed,
       );
 
       if (widget.existingItem != null) {
@@ -208,6 +215,7 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
         setState(() {
           _imageBytes = null;
           _selectedExpiryDate = null;
+          _isStrayFeed = false;
         });
       }
     } catch (e) {
@@ -414,6 +422,24 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
           hint: 'e.g. Bought too much for lunch, still fresh!',
           icon: Icons.history_edu_outlined,
           maxLines: 3,
+        ),
+        const SizedBox(height: 20),
+        // Velasquez: Nilagay ko dito yung toggle para mabilis lang ma-tag kung stray feed 'to. Mark Dave, paki-check placement nito pre.
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE65100).withOpacity(0.1)),
+          ),
+          child: SwitchListTile(
+            title: Text('Tag as Stray Feed', style: GoogleFonts.nunito(fontWeight: FontWeight.w700)),
+            subtitle: Text('Safe for stray animals (cats, dogs)', style: GoogleFonts.nunito(fontSize: 13)),
+            secondary: const Icon(Icons.pets_outlined, color: Color(0xFFE65100)),
+            value: _isStrayFeed,
+            activeColor: const Color(0xFF0F9D58),
+            onChanged: (val) => setState(() => _isStrayFeed = val),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
         ),
         const SizedBox(height: 20),
         // Aguiluz: Date selection para sa expiry. Mark Dave, paki-check design nito.

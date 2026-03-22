@@ -120,32 +120,37 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
               ),
             ],
           ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                onPressed: () async {
-                  // Mark Dave, Para makapag-switch ng account si user.
-                  await SupabaseService.logoutUser();
-                  if (!context.mounted) return;
-                  // Velasquez: Reload the app to hit AuthGate logic.
-                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-                },
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.settings_outlined,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ],
+          // Mark Dave: Inalis ko na yung settings button pre. Isang logout icon na lang para malinis yung header natin.
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            onPressed: () => _showLogoutConfirmation(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Log Out?', style: GoogleFonts.nunito(fontWeight: FontWeight.w900)),
+        content: Text('Are you sure you want to log out of FoodSaver? Your progress and impact records will be saved.', 
+          style: GoogleFonts.nunito(fontWeight: FontWeight.w600)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.nunito(color: Colors.grey, fontWeight: FontWeight.w800)),
+          ),
+          TextButton(
+            onPressed: () async {
+              // Mark Dave: Nilagyan ko ng confirmation pre para iwas aksidenteng pindot sa logout.
+              await SupabaseService.logoutUser();
+              if (!context.mounted) return;
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+            },
+            child: Text('Log Out', style: GoogleFonts.nunito(color: Colors.red, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -171,6 +176,7 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
         final fullName = profileData?['full_name'] ?? 'Eco Warrior User';
         final avatarUrl = profileData?['avatar_url'];
         final buildingNo = profileData?['building_no'] ?? 'Active Member';
+        final phoneNumber = profileData?['phone_number'] ?? 'No number set';
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -241,6 +247,28 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w600,
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone_outlined, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          phoneNumber,
+                          style: GoogleFonts.nunito(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.edit, size: 16, color: Color(0xFF0F9D58)),
+                          onPressed: () => _showEditPhoneDialog(context, phoneNumber),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -1084,6 +1112,83 @@ class _SustainabilityHubScreenState extends State<SustainabilityHubScreen> {
           ),
         ],
       ),
+    );
+  }
+  Future<void> _showEditPhoneDialog(BuildContext context, String currentNumber) async {
+    final TextEditingController phoneController = TextEditingController(text: currentNumber == 'No number set' ? '' : currentNumber);
+    // Velasquez: Ginawa kong dialog 'to para mabilis lang ma-edit ng user yung number nila bago sila mag-post ng item.
+    return showDialog(
+      context: context,
+      builder: (context) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Update Contact Number', style: GoogleFonts.nunito(fontWeight: FontWeight.w900)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. +63 912 345 6789',
+                      prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF0F9D58)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF0F9D58), width: 2),
+                      ),
+                    ),
+                  ),
+                  if (isSaving)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16.0),
+                      child: CircularProgressIndicator(color: Color(0xFF0F9D58)),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: Text('Cancel', style: GoogleFonts.nunito(color: Colors.grey, fontWeight: FontWeight.w600)),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving ? null : () async {
+                    if (phoneController.text.trim().isEmpty) return;
+                    setDialogState(() => isSaving = true);
+                    try {
+                      await SupabaseService.updatePhoneNumber(phoneController.text.trim());
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Phone number updated successfully!'), 
+                          backgroundColor: Color(0xFF0F9D58),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      setState(() {}); // Refresh profile card
+                    } catch (e) {
+                      setDialogState(() => isSaving = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F9D58),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('Save', style: GoogleFonts.nunito(fontWeight: FontWeight.w700)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

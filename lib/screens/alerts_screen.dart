@@ -5,11 +5,58 @@ import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
 import '../widgets/witty_offline_banner.dart';
 import '../utils/error_utils.dart';
+import '../screens/my_listing_screen.dart'; // Added import for MyListingScreen
 
 // Yamaguchi, Dito mo na-monitor lahat ng ganap sa app. 
 // Stay updated pre para mabilis yung response sa mga claims!
-class AlertsScreen extends StatelessWidget {
+class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
+
+  @override
+  State<AlertsScreen> createState() => _AlertsScreenState();
+}
+
+class _AlertsScreenState extends State<AlertsScreen> {
+  // Yamaguchi: Para diretso na sa MyListingScreen pag kinlick, as per User Story US.05.
+  Future<void> _handleViewDetails(BuildContext context, AlertListing alert) async {
+    if (alert.listingId == null) {
+      await SupabaseService.markAlertAsRead(alert.alertId);
+      return;
+    }
+
+    try {
+      await SupabaseService.markAlertAsRead(alert.alertId);
+      
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFF0F9D58))),
+      );
+
+      final listing = await SupabaseService.getFoodListingById(alert.listingId!);
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Pop loading
+
+      if (listing != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => MyListingScreen(foodData: listing)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Listing no longer available.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${ErrorUtils.getFriendlyErrorMessage(e)}')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +75,7 @@ class AlertsScreen extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: WittyOfflineBanner(
-                        onRetry: () => (context as Element).markNeedsBuild(),
+                        onRetry: () => setState(() {}),
                         message: ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
                       ),
                     ),
@@ -106,13 +153,14 @@ class AlertsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              // Yamaguchi: Pag wala nang bago, gawin nating grey para di masakit sa mata.
+              color: newCount > 0 ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               '$newCount New',
               style: GoogleFonts.nunito(
-                color: Colors.white,
+                color: newCount > 0 ? Colors.white : Colors.white.withOpacity(0.6),
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
               ),
@@ -127,13 +175,16 @@ class AlertsScreen extends StatelessWidget {
   Widget _buildAlertCard(BuildContext context, AlertListing alert) {
     bool isGreen = (alert.type == AlertType.claim || alert.type == AlertType.success) && alert.isNew;
     bool isOrange = (alert.type == AlertType.nearby || alert.type == AlertType.warning) && alert.isNew;
+    bool isRed = alert.type == AlertType.expiringSoon;
     
     Color borderColor = Colors.grey.withOpacity(0.1);
     if (isGreen) borderColor = const Color(0xFF0F9D58).withOpacity(0.3);
     if (isOrange) borderColor = const Color(0xFFF57C00).withOpacity(0.3);
+    if (isRed) borderColor = Colors.red.withOpacity(0.5);
     Color? accentColor;
     if (isGreen) accentColor = const Color(0xFF0F9D58);
     if (isOrange) accentColor = const Color(0xFFF57C00);
+    if (isRed) accentColor = Colors.red;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -219,12 +270,9 @@ class AlertsScreen extends StatelessWidget {
                                 Row(
                                   children: [
                                     ElevatedButton(
-                                      onPressed: () async {
-                                        // Task: Navigate to details then mark as viewed
-                                        await SupabaseService.markAlertAsViewed(alert.alertId);
-                                      },
+                                      onPressed: () => _handleViewDetails(context, alert),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF00C853), // Vibrant Green (Image 1)
+                                        backgroundColor: const Color(0xFF0F9D58), // Vibrant Green (Image 1)
                                         foregroundColor: Colors.white,
                                         elevation: 2,
                                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
@@ -236,7 +284,8 @@ class AlertsScreen extends StatelessWidget {
                                     const SizedBox(width: 12),
                                     ElevatedButton(
                                       onPressed: () async {
-                                        await SupabaseService.markAlertAsViewed(alert.alertId);
+                                        // Yamaguchi: Swipe or Dismiss? Dismiss na lang muna pre para malinis yung list.
+                                        await SupabaseService.dismissAlert(alert.alertId);
                                       },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xFFF3F4F6),
@@ -310,14 +359,16 @@ class AlertsScreen extends StatelessWidget {
         break;
       case AlertType.expiry:
       case AlertType.warning:
+      case AlertType.expiringSoon:
+        // Yamaguchi: Dinagdag ko yung red warning UI dito para mapansin agad pag malapit na ma-panis yung item.
         mainIcon = Container(
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: type == AlertType.expiry ? const Color(0xFFEF4444) : const Color(0xFFF57C00),
+            color: (type == AlertType.expiry || type == AlertType.expiringSoon) ? const Color(0xFFEF4444) : const Color(0xFFF57C00),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(type == AlertType.expiry ? Icons.access_time : Icons.warning_amber_rounded, color: Colors.white, size: 28),
+          child: Icon((type == AlertType.expiry || type == AlertType.expiringSoon) ? Icons.warning_amber_rounded : Icons.warning_amber_rounded, color: Colors.white, size: 28),
         );
         break;
     }

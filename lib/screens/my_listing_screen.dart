@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/food_listing.dart';
 import '../data/supabase_service.dart';
 import '../utils/date_utils.dart';
@@ -606,7 +608,8 @@ class _MyListingScreenState extends State<MyListingScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {},
+                // Velasquez: I-trigger natin yung popup dito, ipasa yung ID para ma-fetch yung number sa profiles table.
+                onPressed: () => _showContactDetailsDialog(context, _currentFoodData.claimerId!, claimerName),
                 icon: const Icon(Icons.chat_bubble_outline),
                 label: const Text('Send Message'),
                 style: ElevatedButton.styleFrom(
@@ -654,7 +657,7 @@ class _MyListingScreenState extends State<MyListingScreen> {
           ),
           const SizedBox(width: 12),
           GestureDetector(
-            onTap: _handleConfirm,
+            onTap: () => _confirmPickupDialog(context, claimerName),
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -775,6 +778,220 @@ class _MyListingScreenState extends State<MyListingScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _confirmPickupDialog(BuildContext context, String claimerName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Confirm Pickup?', style: GoogleFonts.nunito(fontWeight: FontWeight.w900)),
+        content: Text('Are you sure this item has been picked up by $claimerName? This will mark the listing as completed.', 
+          style: GoogleFonts.nunito(fontWeight: FontWeight.w600)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Not yet', style: GoogleFonts.nunito(color: Colors.grey, fontWeight: FontWeight.w800)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleConfirm();
+            },
+            child: Text('Yes, confirmed', style: GoogleFonts.nunito(color: const Color(0xFF0F9D58), fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ),
+    );
+  }
+  Future<void> _showContactDetailsDialog(BuildContext context, String claimerId, String claimerName) async {
+    // Velasquez: Loader muna tayo pre bago ipakita yung phone number, mahirap na pag null-pointer.
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          clipBehavior: Clip.antiAlias,
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: Supabase.instance.client
+                .from('profiles')
+                .select('phone_number, building_no')
+                .eq('id', claimerId)
+                .single(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF4285F4))),
+                );
+              }
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    ErrorUtils.getFriendlyErrorMessage(snapshot.error!),
+                    style: GoogleFonts.nunito(color: Colors.red, fontWeight: FontWeight.w600),
+                  ),
+                );
+              }
+
+              final profile = snapshot.data!;
+              final phoneNumber = profile['phone_number'] ?? 'N/A';
+              final buildingNo = profile['building_no'] ?? 'Verified member';
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   // Header: Blue container (Colors.blue[600])
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    color: Colors.blue[600],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Contact Details',
+                              style: GoogleFonts.nunito(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'Reach out to confirm pickup',
+                          style: GoogleFonts.nunito(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                   // Body
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                         // Profile Row
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: const Color(0xFF0F9D58),
+                              child: Text(
+                                claimerName.isNotEmpty ? claimerName[0].toUpperCase() : '?',
+                                style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    claimerName,
+                                    style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w900),
+                                  ),
+                                  Text(
+                                    buildingNo,
+                                    style: GoogleFonts.nunito(color: Colors.grey[600], fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                         // Phone Container
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F8F1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.phone_outlined, color: Color(0xFF0F9D58)),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Phone Number',
+                                    style: GoogleFonts.nunito(
+                                      color: const Color(0xFF2D3142),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    phoneNumber,
+                                    style: GoogleFonts.nunito(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                         // Action Buttons Row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => launchUrl(Uri.parse('sms:$phoneNumber')),
+                                icon: const Icon(Icons.chat_bubble_outline),
+                                label: const Text('Send Message'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4285F4),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  elevation: 0,
+                                  textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 16),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            GestureDetector(
+                               onTap: () => launchUrl(Uri.parse('tel:$phoneNumber')),
+                               child: Container(
+                                 padding: const EdgeInsets.all(18),
+                                 decoration: BoxDecoration(
+                                   color: const Color(0xFF0F9D58),
+                                   borderRadius: BorderRadius.circular(16),
+                                 ),
+                                 child: const Icon(Icons.phone, color: Colors.white),
+                               ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
