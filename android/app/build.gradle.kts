@@ -35,10 +35,18 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            
+            // Velasquez: Tinawag ko yung proguard rules natin dito para i-bypass yung R8 errors.
+            proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Velasquez: Forced okhttp3 implementation so R8 stops crashing on the image_cropper package during release build.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
