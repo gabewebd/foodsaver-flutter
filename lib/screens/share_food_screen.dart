@@ -76,50 +76,71 @@ class _ShareFoodScreenState extends State<ShareFoodScreen> {
     }
   }
 
-  Future<void> _pickImage(bool shouldCrop) async {
-    // Aguiluz: Pick image logic natin pre. Matic na quality 80 para di mabigat sa DB.
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    
-    if (pickedFile != null) {
-      if (shouldCrop) {
-        // Velasquez: Tinanggal ko yung viewMode at initialAspectRatio para di mag-error yung compiler.
-        // Sapat na yung pagtanggal natin ng global aspectRatio lock kanina para maging free-form 'to sa Edge.
-        final croppedFile = await ImageCropper().cropImage(
-          sourcePath: pickedFile.path,
-          uiSettings: [
-            AndroidUiSettings(
-              toolbarTitle: 'Crop Food Photo',
-              toolbarColor: Colors.white,
-              toolbarWidgetColor: const Color(0xFFE65100),
-              backgroundColor: Colors.white,
-              initAspectRatio: CropAspectRatioPreset.original,
-              lockAspectRatio: false,
-              hideBottomControls: false,
-            ),
-            IOSUiSettings(
-              title: 'Crop Food Photo',
-              aspectRatioLockEnabled: false,
-              resetAspectRatioEnabled: true,
-            ),
-            WebUiSettings(
-              context: context,
-              presentStyle: WebPresentStyle.dialog,
-              size: const CropperSize(width: 520, height: 520),
-            ),
-          ],
-        );
+  bool _isPickingImage = false;
 
-        if (croppedFile != null) {
-          final bytes = await croppedFile.readAsBytes();
-          setState(() {
-            _imageBytes = bytes;
-          });
+  Future<void> _pickImage(bool shouldCrop) async {
+    if (_isPickingImage) return;
+    setState(() => _isPickingImage = true);
+
+    try {
+      // Aguiluz: Pick image logic natin pre. Matic na quality 80 para di mabigat sa DB.
+      final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      
+      if (pickedFile != null) {
+        if (shouldCrop) {
+          // Aguiluz: Added a small delay to ensure the ImagePicker activity transitions smoothly.
+          // Now that UCropActivity is added to the Manifest, 100ms is more than enough.
+          await Future.delayed(const Duration(milliseconds: 100));
+          
+          if (!mounted) return; // double check if still mounted
+          
+          final croppedFile = await ImageCropper().cropImage(
+            sourcePath: pickedFile.path,
+            uiSettings: [
+              AndroidUiSettings(
+                toolbarTitle: 'Crop Food Photo',
+                toolbarColor: Colors.white,
+                toolbarWidgetColor: const Color(0xFFE65100),
+                backgroundColor: Colors.white,
+                initAspectRatio: CropAspectRatioPreset.original,
+                lockAspectRatio: false,
+                hideBottomControls: false,
+              ),
+              IOSUiSettings(
+                title: 'Crop Food Photo',
+                aspectRatioLockEnabled: false,
+                resetAspectRatioEnabled: true,
+              ),
+              WebUiSettings(
+                context: context,
+                presentStyle: WebPresentStyle.dialog,
+                size: const CropperSize(width: 520, height: 520),
+              ),
+            ],
+          );
+
+          if (croppedFile != null) {
+            final bytes = await croppedFile.readAsBytes();
+            if (mounted) {
+              setState(() {
+                _imageBytes = bytes;
+              });
+            }
+          }
+        } else {
+          final bytes = await pickedFile.readAsBytes();
+          if (mounted) {
+            setState(() {
+              _imageBytes = bytes;
+            });
+          }
         }
-      } else {
-        final bytes = await pickedFile.readAsBytes();
-        setState(() {
-          _imageBytes = bytes;
-        });
+      }
+    } catch (e) {
+      debugPrint('Error picking/cropping image: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingImage = false);
       }
     }
   }
